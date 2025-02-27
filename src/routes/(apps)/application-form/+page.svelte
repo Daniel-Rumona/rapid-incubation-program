@@ -1,3 +1,4 @@
+Fix it here
 <script lang="ts">
 	import { get, writable } from 'svelte/store';
 	import { onMount } from "svelte";
@@ -84,7 +85,7 @@ businessAddressLocation: "",
 			"Marketing and Sales": [],
 			"Financial Management & Systems": [],
 			"Regulatory Compliance": [],
-			"Business Mentorship & Coaching": [],
+			"Business Mentorship": [],
 			"Technical Training & Webinars": [],
 			"Operational Support": [],
 			"Growth Plan": [],
@@ -260,16 +261,16 @@ businessAddressLocation: "",
 			value: $formData.registeredWithSARS
 		}
 		: undefined;
-	$: selectedBusinessAddressProvince = $formData.businessAddressProvinces
-			? {
-				label: $formData.businessAddressProvinces,
-				value: $formData.businessAddressProvinces
-			}
-			: undefined;
 	$: selectedBusinessAddressLocation = $formData.businessAddressLocation
 		? {
 			label: $formData.businessAddressLocation,
 			value: $formData.businessAddressLocation
+		}
+		: undefined;
+$: selectedBusinessAddressProvince = $formData.businessAddressProvince
+		? {
+			label: $formData.businessAddressProvince,
+			value: $formData.businessAddressProvince
 		}
 		: undefined;
 	// Calculate Business Growth Rate
@@ -286,40 +287,17 @@ businessAddressLocation: "",
 	let selectedFiles = [];
 
 	// Handle File Selection
-	const handleFileSelection = async (event) => {
-		const file = event.target.files[0];
-		const fieldName = event.target.id;
+	const handleFileSelection = (event) => {
+    const file = event.target.files[0]; // Get the selected file
+    const fieldName = event.target.id; // Get the ID of the input field
 
-		if (!file) return;
-
-		try {
-			const user = auth.currentUser;
-			if (!user) {
-				alert("You need to be logged in to upload files.");
-				return;
-			}
-
-			const userId = await getUserIdByEmail(user.email);
-			if (!userId) {
-				alert("User not found in Firestore.");
-				return;
-			}
-
-			const storageRef = ref(storage, `uploads/${userId}/${fieldName}/${file.name}`);
-			const snapshot = await uploadBytes(storageRef, file);
-			const downloadURL = await getDownloadURL(snapshot.ref);
-
-			formData.update((data) => ({
-				...data,
-				documents: { ...data.documents, [fieldName]: downloadURL } // Store URL
-			}));
-
-			alert(`${file.name} uploaded successfully!`);
-		} catch (error) {
-			console.error("🔥 File Upload Error:", error);
-			alert("Error uploading file. Please try again.");
-		}
-	};
+    if (file) {
+        formData.update((data) => {
+            const updatedDocuments = { ...data.documents, [fieldName]: file };
+            return { ...data, documents: updatedDocuments };
+        });
+    }
+};
 
 
 	// Function to Generate Application ID
@@ -502,8 +480,7 @@ businessAddressLocation: "",
 		0: ["fullName", "applicantGender", "applicantIDNumber", "applicantAge", "applicantAcademicQualification", "areYouDUTStudent"],
 		1: ["businessName", "natureOfBusiness", "businessDescription", "yearsOfTrading", "registrationNumber", "dateOfRegistration", "businessAddress", "postalCode"],
 		2: ["revenueFor2022", "revenueFor2023", "revenueFor2024", "employeesFor2022", "employeesFor2023","employeesFor2024", "registeredWithSARS"],
-		3: ["motivation"],
-		4: ["documents"] // Ensure at least one document is uploaded
+		3: ["motivation"]
 	};
 
 	// Navigation Functions
@@ -579,63 +556,118 @@ businessAddressLocation: "",
     "bank-statement-upload"
 ];
 
-	const validateDocuments = () => {
-		const form = get(formData);
-		const missingDocs = requiredDocuments.filter(doc => !form.documents[doc]);
+const validateDocuments = () => {
+    const form = get(formData);
+    const missingDocs = requiredDocuments.filter(doc => !form.documents[doc]);
 
-		if (missingDocs.length > 0) {
-			alert(`❌ Please upload the following documents before submitting: ${missingDocs.join(", ")}`);
-			return false;
-		}
-		return true;
-	};
+    if (missingDocs.length > 0) {
+        alert(`❌ Please upload the following documents before submitting: ${missingDocs.join(", ")}`);
+        return false;
+    }
+    return true;
+};
 
-	const submitForm = async () => {
-		try {
-			if (!validateDocuments()) return;
+const submitForm = async () => {
+    try {
+        if (!validateDocuments()) return; // 🔹 Stop if required documents are missing
 
-			showModal.set(true); // Show loading modal
-			updateModalMessage();
+        showModal.set(true); // Show loading modal
+        updateModalMessage();
 
-			const user = auth.currentUser;
-			if (!user) {
-				alert("User not logged in!");
-				showModal.set(false);
-				return;
-			}
+        const user = auth.currentUser;
+        if (!user) {
+            alert("User not logged in!");
+            showModal.set(false);
+            return;
+        }
 
-			const userId = await getUserIdByEmail(user.email);
-			if (!userId) {
-				alert("User not found in Firestore!");
-				showModal.set(false);
-				return;
-			}
+        const userId = await getUserIdByEmail(user.email);
+        if (!userId) {
+            alert("User not found in Firestore!");
+            showModal.set(false);
+            return;
+        }
 
-			// Generate Application ID
-			const applicationID = await generateApplicationID(userId);
+        // 🔹 Generate Application ID
+        const applicationID = await generateApplicationID(userId);
 
-			// Extract form data
-			const form = get(formData);
+        // Extract form data
+        const form = get(formData);
+        const currentYear = new Date().getFullYear();
+        let aiResponse = { aiRecommendation: "Pending", aiScore: 0, aiJustification: "" };
 
-			// Save application to Firestore
-			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-			await addDoc(applicationsCollection, {
-				applicationID,
-				...form,
-				submittedAt: new Date(),
-			});
+        // 🔥 **Pre-screening based on rejection criteria**
+        const province = form.businessAddressProvince.toLowerCase().trim();
+        const city = form.businessAddressCity.toLowerCase().trim();
 
-			showModal.set(false);
-			alert("🎉 Application submitted successfully!");
-			goto('/track-application/tracker');
+        if (province !== "kwazulu-natal" && province !== "kzn") {
+            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not located in KwaZulu-Natal." };
+        } else if (!["durban", "pietermaritzburg", "umhlanga", "ballito", "richards bay", "newcastle"].includes(city)) {
+            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not in Durban or nearby cities in KZN." };
+        } else if (form.areYouDUTStudent === "Yes") {
+            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Current DUT students are referred to Innobiz." };
+        } else if (form.registrationNumber) {
+            const companyYear = parseInt(form.registrationNumber.split("/")[0]); // Extract YYYY from "YYYY/NNNNNN/06"
+            if (currentYear - companyYear > 5) {
+                aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company registration is older than 5 years." };
+            }
+        } else if (form.taxCompliance !== "Yes") {
+            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company does not meet compliance requirements." };
+        }
 
-		} catch (error) {
-			console.error("🔥 Firestore Error:", error);
-			alert("Error submitting application. Please try again.");
-			showModal.set(false);
-		}
-	};
+        // If rejected, save the application immediately
+        if (aiResponse.aiRecommendation === "Rejected") {
+            const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+            await addDoc(applicationsCollection, {
+                applicationID,
+                ...form,
+                submittedAt: new Date(),
+                aiRecommendation: aiResponse.aiRecommendation,
+                aiScore: aiResponse.aiScore,
+                aiJustification: aiResponse.aiJustification,
+            });
 
+            showModal.set(false);
+            alert(`Application Rejected: ${aiResponse.aiJustification}`);
+            return;
+        }
+
+        // **Proceed with AI API Call if not rejected**
+        const applicationData = {
+            company_name: form.businessName,
+            company_registration_no: form.registrationNumber,
+            no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
+            sector: form.natureOfBusiness,
+            current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
+            current_business_turnover: parseInt(form.revenueFor2024 || "0"),
+            business_description: form.businessDescription,
+            tax_clearance: form.taxCompliance,
+            initial_support: form.motivation,
+        };
+
+        // Send to AI
+        aiResponse = await submitToAI(applicationData);
+
+        // Save Application with AI Response
+        const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+        await addDoc(applicationsCollection, {
+            applicationID,
+            ...form,
+            submittedAt: new Date(),
+            aiRecommendation: aiResponse.aiRecommendation,
+            aiScore: aiResponse.aiScore,
+            aiJustification: aiResponse.aiJustification,
+        });
+
+        showModal.set(false);
+        goto('/track-application/tracker');
+
+    } catch (error) {
+        console.error("🔥 Firestore Error:", error);
+        alert("Error submitting application. Please try again.");
+        showModal.set(false);
+    }
+};
 	const fetchApplicationData = async (userId) => {
 		try {
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
@@ -1186,24 +1218,17 @@ businessAddressLocation: "",
 					</Card.Header>
 					<Card.Content class="grid gap-6">
     {#each requiredDocuments as doc}
-        <Label for={doc}>
-            {doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-        </Label>
+        <Label for={doc}>{doc.replace("-", " ").toUpperCase()}</Label>
         <Input
             id={doc}
             type="file"
             accept=".pdf,.doc,.docx,.jpg,.png"
             on:change={handleFileSelection}
         />
-
         {#if $formData.documents[doc]}
-            <p class="text-green-500">
-                ✅ {doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} uploaded
-            </p>
+            <p class="text-green-500">✅ {doc} uploaded</p>
         {:else}
-            <p class="text-red-500">
-                ❌ {doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} not uploaded
-            </p>
+            <p class="text-red-500">❌ {doc} not uploaded</p>
         {/if}
     {/each}
 </Card.Content>
