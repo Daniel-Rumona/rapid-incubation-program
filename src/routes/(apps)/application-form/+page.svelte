@@ -287,8 +287,8 @@ businessAddressLocation: "",
 
 	// Handle File Selection
 	const handleFileSelection = async (event) => {
-		const file = event.target.files[0];  // Get selected file
-		const fieldName = event.target.id;  // Get the ID of the input field
+		const file = event.target.files[0];
+		const fieldName = event.target.id;
 
 		if (!file) return;
 
@@ -309,10 +309,10 @@ businessAddressLocation: "",
 			const snapshot = await uploadBytes(storageRef, file);
 			const downloadURL = await getDownloadURL(snapshot.ref);
 
-			formData.update((data) => {
-				const updatedDocuments = { ...data.documents, [fieldName]: downloadURL }; // Store URL instead of File object
-				return { ...data, documents: updatedDocuments };
-			});
+			formData.update((data) => ({
+				...data,
+				documents: { ...data.documents, [fieldName]: downloadURL } // Store URL
+			}));
 
 			alert(`${file.name} uploaded successfully!`);
 		} catch (error) {
@@ -1185,21 +1185,25 @@ businessAddressLocation: "",
 						>
 					</Card.Header>
 					<Card.Content class="grid gap-6">
-    {#each requiredDocuments as doc}
-        <Label for={doc}>{doc.replace("-", " ").toUpperCase()}</Label>
-        <Input
-            id={doc}
-            type="file"
-            accept=".pdf,.doc,.docx,.jpg,.png"
-            on:change={handleFileSelection}
-        />
-        {#if $formData.documents[doc]}
-            <p class="text-green-500">✅ {doc} uploaded</p>
-        {:else}
-            <p class="text-red-500">❌ {doc} not uploaded</p>
-        {/if}
-    {/each}
-</Card.Content>
+						{#each requiredDocuments as doc}
+							{#let humanReadableName = doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+
+							<Label for={doc}>{humanReadableName}</Label>
+							<Input
+									id={doc}
+									type="file"
+									accept=".pdf,.doc,.docx,.jpg,.png"
+									on:change={handleFileSelection}
+							/>
+
+							{#if $formData.documents[doc]}
+								<p class="text-green-500">✅ {humanReadableName} uploaded</p>
+							{:else}
+								<p class="text-red-500">❌ {humanReadableName} not uploaded</p>
+							{/if}
+						{/each}
+					</Card.Content>
+
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
 						<Button on:click={submitForm} class="rounded bg-green-500 px-4 py-2 text-white">
