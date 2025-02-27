@@ -53,26 +53,33 @@ businessAddressLocation: "",
 		businessGrowthRate: "",
 		postalCode: "",
 		lastFourMonthsTurnover: "",
-		revenueFor2022:0,
-		revenueFor2023:0,
-		revenueFor2024:0,
-		employeesFor2022:0,
-		employeesFor2023:0,
-		employeesFor2024:0,
-		revenueForMonth1:0,
-		revenueForMonth2:0,
-		revenueForMonth3:0,
-		revenueForMonth4:0,
-		employeesForMonth1:0,
-		employeesForMonth2:0,
-		employeesForMonth3:0,
-		employeesForMonth4:0,
+		revenueFor2022:"",
+		revenueFor2023:"",
+		revenueFor2024:"",
+		employeesFor2022:"",
+		employeesFor2023:"",
+		employeesFor2024:"",
+		revenueForMonth1:"",
+		revenueForMonth2:"",
+		revenueForMonth3:"",
+		revenueForMonth4:"",
+		employeesForMonth1:"",
+		employeesForMonth2:"",
+		employeesForMonth3:"",
+		employeesForMonth4:"",
 		whereDidYouHearAboutUs: "",
 		registeredWithSARS: "",
 		taxCompliance: "",
 		bbbbeeCertificate: "",
 		motivation: "",
 		challenges: "",
+		softwareAreas: {
+			"Accounting & Finance": [],
+			"Human Resources": [],
+			"Marketing": [],
+			"Risk Management": [],
+			"Other": []
+		},
 		interventions: {
 			"Marketing and Sales": [],
 			"Financial Management & Systems": [],
@@ -183,6 +190,28 @@ businessAddressLocation: "",
 				interventions: {
 					...data.interventions,
 					[category]: updatedCategory
+				}
+			};
+		});
+	};
+	const updateSoftwareArea = (area: string) => {
+		formData.update(data => {
+			// Ensure `softwareAreas` exists
+			const updatedSoftwareAreas = data.softwareAreas || {};
+
+			// Toggle selection
+			let updatedArea = updatedSoftwareAreas[area] || [];
+			if (updatedArea.includes(area)) {
+				updatedArea = updatedArea.filter(i => i !== area);
+			} else {
+				updatedArea.push(area);
+			}
+
+			return {
+				...data,
+				softwareAreas: {
+					...updatedSoftwareAreas,
+					[area]: updatedArea
 				}
 			};
 		});
@@ -980,59 +1009,72 @@ const submitForm = async () => {
 					<Card.Content class="grid gap-6">
 						<Card.Content class="grid gap-6">
 							<!-- 🔹 Yearly Data (2022 - 2024) -->
-							{#each [2022, 2023, 2024] as year}
-	<div class="grid grid-cols-3 gap-4">
-		<Label for="revenueFor{year}">Revenue for {year}</Label>
-		<Input
-			id="revenueFor{year}"
-			type="number"
-			bind:value={$formData[`revenueFor${year}`]}
-			on:input={(e) => formData.update(data => ({ ...data, [`revenueFor${year}`]: parseFloat(e.target.value) || 0 }))}
-			placeholder="Enter revenue for {year}"
-		/>
-		<Label for="employeesFor{year}">Employees for {year}</Label>
-		<Input
-			id="employeesFor{year}"
-			type="number"
-			bind:value={$formData[`employeesFor${year}`]}
-			on:input={(e) => formData.update(data => ({ ...data, [`employeesFor${year}`]: parseInt(e.target.value) || 0 }))}
-			placeholder="Enter number of employees for {year}"
-		/>
-	</div>
-{/each}
+							<div class="grid grid-cols-2 gap-4">
+								{#each [2022, 2023, 2024] as year}
+									<div class="flex items-center gap-2">
+										<Label for="revenueFor{year}" class="w-40">Revenue for {year}</Label>
+										<Input
+												id="revenueFor{year}"
+												type="number"
+												class="w-40"
+												bind:value={$formData[`revenueFor${year}`]}
+												on:input={(e) => formData.update(data => ({ ...data, [`revenueFor${year}`]: parseFloat(e.target.value) || 0 }))}
+												placeholder="Enter revenue"
+										/>
+									</div>
+									<div class="flex items-center gap-2">
+										<Label for="employeesFor{year}" class="w-40">Employees for {year}</Label>
+										<Input
+												id="employeesFor{year}"
+												type="number"
+												class="w-40"
+												bind:value={$formData[`employeesFor${year}`]}
+												on:input={(e) => formData.update(data => ({ ...data, [`employeesFor${year}`]: parseInt(e.target.value) || 0 }))}
+												placeholder="Enter employees"
+										/>
+									</div>
+								{/each}
+							</div>
+
 							<h3 class="text-lg font-medium">Enter your revenue and employees for the past four months</h3>
+
 							<!-- 🔹 Monthly Data -->
-							{#each [1, 2, 3, 4] as month}
-	<div class="grid grid-cols-3 gap-4">
-		<Label for="revenueForMonth{month}">Revenue for Month {month}</Label>
-		<Input
-			id="revenueForMonth{month}"
-			type="number"
-			bind:value={$formData[`revenueForMonth${month}`]}
-			on:input={(e) => formData.update(data => ({ ...data, [`revenueForMonth${month}`]: parseFloat(e.target.value) || 0 }))}
-			placeholder="Enter revenue for Month {month}"
-		/>
-		<Label for="employeesForMonth{month}">Employees for Month {month}</Label>
-		<Input
-			id="employeesForMonth{month}"
-			type="number"
-			bind:value={$formData[`employeesForMonth${month}`]}
-			on:input={(e) => formData.update(data => ({ ...data, [`employeesForMonth${month}`]: parseInt(e.target.value) || 0 }))}
-			placeholder="Enter number of employees for Month {month}"
-		/>
-	</div>
-{/each}
-
+							<div class="grid grid-cols-2 gap-4">
+								{#each [1, 2, 3, 4] as month}
+									<div class="flex items-center gap-2">
+										<Label for="revenueForMonth{month}" class="w-40">Revenue (Month {month})</Label>
+										<Input
+												id="revenueForMonth{month}"
+												type="number"
+												class="w-40"
+												bind:value={$formData[`revenueForMonth${month}`]}
+												on:input={(e) => formData.update(data => ({ ...data, [`revenueForMonth${month}`]: parseFloat(e.target.value) || 0 }))}
+												placeholder="Enter revenue"
+										/>
+									</div>
+									<div class="flex items-center gap-2">
+										<Label for="employeesForMonth{month}" class="w-40">Employees (Month {month})</Label>
+										<Input
+												id="employeesForMonth{month}"
+												type="number"
+												class="w-40"
+												bind:value={$formData[`employeesForMonth${month}`]}
+												on:input={(e) => formData.update(data => ({ ...data, [`employeesForMonth${month}`]: parseInt(e.target.value) || 0 }))}
+												placeholder="Enter employees"
+										/>
+									</div>
+								{/each}
+							</div>
 						</Card.Content>
-						<Label for="sars-registration">Registered with SARS?</Label>
 
+						<Label for="sars-registration">Registered with SARS?</Label>
 						<Select.Root
-							selected={selectedRegisteredWithSARS}
-							onSelectedChange={(v) => {
-    if (v) {
-      $formData.registeredWithSARS = v.value;
-    }
-  }}
+								selected={selectedRegisteredWithSARS}
+								onSelectedChange={(v) => {
+                        if (v) {
+                            $formData.registeredWithSARS = v.value;
+                        }
+                    }}
 						>
 							<Select.Trigger id="sars-registration">
 								<Select.Value placeholder="Select" />
@@ -1045,8 +1087,8 @@ const submitForm = async () => {
 						</Select.Root>
 
 						<input hidden bind:value={$formData.registeredWithSARS} name="registeredWithSARS" />
-
 					</Card.Content>
+
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
 						<Button on:click={nextStep}>Next →</Button>
@@ -1054,6 +1096,7 @@ const submitForm = async () => {
 				</Card.Root>
 			</div>
 		{/if}
+
 
 		{#if $currentStep === 3}
 			<div transition:fly={{ y: 20, opacity: 0 }} class="w-full">
@@ -1122,14 +1165,14 @@ const submitForm = async () => {
 								{#each softwareAreas as area}
 									<div class="flex items-center gap-2">
 										<Checkbox
-											checked={$formData.softwareAreas[area].includes(area)}
+												checked={$formData.softwareAreas?.[area]?.includes(area) || false}
+												on:click={() => updateSoftwareArea(area)}
 										/>
 										<Label>{area}</Label>
 									</div>
 								{/each}
 							</div>
 						</div>
-
 					</Card.Content>
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
