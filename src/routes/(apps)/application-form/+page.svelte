@@ -650,7 +650,6 @@ const submitForm = async () => {
             });
 
             showModal.set(false);
-            alert(`Application Rejected: ${aiResponse.aiJustification}`);
             return;
         }
 
