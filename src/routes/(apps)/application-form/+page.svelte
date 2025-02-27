@@ -260,6 +260,12 @@ businessAddressLocation: "",
 			value: $formData.registeredWithSARS
 		}
 		: undefined;
+	$: selectedBusinessAddressProvince = $formData.businessAddressProvinces
+			? {
+				label: $formData.businessAddressProvinces,
+				value: $formData.businessAddressProvinces
+			}
+			: undefined;
 	$: selectedBusinessAddressLocation = $formData.businessAddressLocation
 		? {
 			label: $formData.businessAddressLocation,
