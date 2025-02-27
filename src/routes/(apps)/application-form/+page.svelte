@@ -1247,11 +1247,7 @@ const submitForm = async () => {
             accept=".pdf,.doc,.docx,.jpg,.png"
             on:change={handleFileSelection}
         />
-        {#if $formData.documents[doc]}
-            <p class="text-green-500">✅ {doc} uploaded</p>
-        {:else}
-            <p class="text-red-500">❌ {doc} not uploaded</p>
-        {/if}
+        
     {/each}
 </Card.Content>
 					<Card.Footer class="flex justify-between">
