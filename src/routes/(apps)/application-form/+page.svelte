@@ -101,7 +101,7 @@ businessAddressLocation: "",
 	};
 
 
-	const softwareAreas = ["Financial Management", "Human Resources", "Marketing", "Risk Management", "Other"]
+	const softwareAreas = ["Accounting & Finance", "Human Resources", "Marketing", "Risk Management", "Other"]
 	const sections = {
 		"Marketing and Sales": [
 			"Website Development & Domain Email Registration", "Website Hosting", "Company Logo",
