@@ -30,7 +30,7 @@
 	const handleLogout = async () => {
 		try {
 			await signOut(auth);
-			goto("/track-application/signin"); // Redirect after logout
+			goto("/signin"); // Redirect after logout
 		} catch (error) {
 			console.error("Logout error:", error);
 		}
