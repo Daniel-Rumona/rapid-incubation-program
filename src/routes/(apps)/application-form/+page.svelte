@@ -1,4 +1,3 @@
-Fix it here
 <script lang="ts">
 	import { get, writable } from 'svelte/store';
 	import { onMount } from "svelte";
