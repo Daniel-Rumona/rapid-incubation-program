@@ -1186,12 +1186,9 @@ businessAddressLocation: "",
 					</Card.Header>
 					<Card.Content class="grid gap-6">
     {#each requiredDocuments as doc}
-        { 
-            // Convert "cipc-upload" → "Cipc Upload"
-            const humanReadableName = doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        }
-        
-        <Label for={doc}>{humanReadableName}</Label>
+        <Label for={doc}>
+            {doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+        </Label>
         <Input
             id={doc}
             type="file"
@@ -1200,14 +1197,16 @@ businessAddressLocation: "",
         />
 
         {#if $formData.documents[doc]}
-            <p class="text-green-500">✅ {humanReadableName} uploaded</p>
+            <p class="text-green-500">
+                ✅ {doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} uploaded
+            </p>
         {:else}
-            <p class="text-red-500">❌ {humanReadableName} not uploaded</p>
+            <p class="text-red-500">
+                ❌ {doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} not uploaded
+            </p>
         {/if}
     {/each}
 </Card.Content>
-
-
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
 						<Button on:click={submitForm} class="rounded bg-green-500 px-4 py-2 text-white">
