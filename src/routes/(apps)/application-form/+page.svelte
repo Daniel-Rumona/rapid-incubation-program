@@ -1,3 +1,4 @@
+Fix it here
 <script lang="ts">
 	import { get, writable } from 'svelte/store';
 	import { onMount } from "svelte";
@@ -84,7 +85,7 @@ businessAddressLocation: "",
 			"Marketing and Sales": [],
 			"Financial Management & Systems": [],
 			"Regulatory Compliance": [],
-			"Business Mentorship": [],
+			"Business Mentorship & Coaching": [],
 			"Technical Training & Webinars": [],
 			"Operational Support": [],
 			"Growth Plan": [],
@@ -568,7 +569,6 @@ const validateDocuments = () => {
 
 const submitForm = async () => {
     try {
-        if (!validateDocuments()) return; // 🔹 Stop if required documents are missing
 
         showModal.set(true); // Show loading modal
         updateModalMessage();
