@@ -1185,24 +1185,28 @@ businessAddressLocation: "",
 						>
 					</Card.Header>
 					<Card.Content class="grid gap-6">
-						{#each requiredDocuments as doc}
-							{#let humanReadableName = doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+    {#each requiredDocuments as doc}
+        { 
+            // Convert "cipc-upload" → "Cipc Upload"
+            const humanReadableName = doc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+        
+        <Label for={doc}>{humanReadableName}</Label>
+        <Input
+            id={doc}
+            type="file"
+            accept=".pdf,.doc,.docx,.jpg,.png"
+            on:change={handleFileSelection}
+        />
 
-							<Label for={doc}>{humanReadableName}</Label>
-							<Input
-									id={doc}
-									type="file"
-									accept=".pdf,.doc,.docx,.jpg,.png"
-									on:change={handleFileSelection}
-							/>
+        {#if $formData.documents[doc]}
+            <p class="text-green-500">✅ {humanReadableName} uploaded</p>
+        {:else}
+            <p class="text-red-500">❌ {humanReadableName} not uploaded</p>
+        {/if}
+    {/each}
+</Card.Content>
 
-							{#if $formData.documents[doc]}
-								<p class="text-green-500">✅ {humanReadableName} uploaded</p>
-							{:else}
-								<p class="text-red-500">❌ {humanReadableName} not uploaded</p>
-							{/if}
-						{/each}
-					</Card.Content>
 
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
