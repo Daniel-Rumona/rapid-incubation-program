@@ -280,17 +280,40 @@ businessAddressLocation: "",
 	let selectedFiles = [];
 
 	// Handle File Selection
-	const handleFileSelection = (event) => {
-    const file = event.target.files[0]; // Get the selected file
-    const fieldName = event.target.id; // Get the ID of the input field
+	const handleFileSelection = async (event) => {
+		const file = event.target.files[0];  // Get selected file
+		const fieldName = event.target.id;  // Get the ID of the input field
 
-    if (file) {
-        formData.update((data) => {
-            const updatedDocuments = { ...data.documents, [fieldName]: file };
-            return { ...data, documents: updatedDocuments };
-        });
-    }
-};
+		if (!file) return;
+
+		try {
+			const user = auth.currentUser;
+			if (!user) {
+				alert("You need to be logged in to upload files.");
+				return;
+			}
+
+			const userId = await getUserIdByEmail(user.email);
+			if (!userId) {
+				alert("User not found in Firestore.");
+				return;
+			}
+
+			const storageRef = ref(storage, `uploads/${userId}/${fieldName}/${file.name}`);
+			const snapshot = await uploadBytes(storageRef, file);
+			const downloadURL = await getDownloadURL(snapshot.ref);
+
+			formData.update((data) => {
+				const updatedDocuments = { ...data.documents, [fieldName]: downloadURL }; // Store URL instead of File object
+				return { ...data, documents: updatedDocuments };
+			});
+
+			alert(`${file.name} uploaded successfully!`);
+		} catch (error) {
+			console.error("🔥 File Upload Error:", error);
+			alert("Error uploading file. Please try again.");
+		}
+	};
 
 
 	// Function to Generate Application ID
@@ -550,118 +573,63 @@ businessAddressLocation: "",
     "bank-statement-upload"
 ];
 
-const validateDocuments = () => {
-    const form = get(formData);
-    const missingDocs = requiredDocuments.filter(doc => !form.documents[doc]);
+	const validateDocuments = () => {
+		const form = get(formData);
+		const missingDocs = requiredDocuments.filter(doc => !form.documents[doc]);
 
-    if (missingDocs.length > 0) {
-        alert(`❌ Please upload the following documents before submitting: ${missingDocs.join(", ")}`);
-        return false;
-    }
-    return true;
-};
+		if (missingDocs.length > 0) {
+			alert(`❌ Please upload the following documents before submitting: ${missingDocs.join(", ")}`);
+			return false;
+		}
+		return true;
+	};
 
-const submitForm = async () => {
-    try {
-        if (!validateDocuments()) return; // 🔹 Stop if required documents are missing
+	const submitForm = async () => {
+		try {
+			if (!validateDocuments()) return;
 
-        showModal.set(true); // Show loading modal
-        updateModalMessage();
+			showModal.set(true); // Show loading modal
+			updateModalMessage();
 
-        const user = auth.currentUser;
-        if (!user) {
-            alert("User not logged in!");
-            showModal.set(false);
-            return;
-        }
+			const user = auth.currentUser;
+			if (!user) {
+				alert("User not logged in!");
+				showModal.set(false);
+				return;
+			}
 
-        const userId = await getUserIdByEmail(user.email);
-        if (!userId) {
-            alert("User not found in Firestore!");
-            showModal.set(false);
-            return;
-        }
+			const userId = await getUserIdByEmail(user.email);
+			if (!userId) {
+				alert("User not found in Firestore!");
+				showModal.set(false);
+				return;
+			}
 
-        // 🔹 Generate Application ID
-        const applicationID = await generateApplicationID(userId);
+			// Generate Application ID
+			const applicationID = await generateApplicationID(userId);
 
-        // Extract form data
-        const form = get(formData);
-        const currentYear = new Date().getFullYear();
-        let aiResponse = { aiRecommendation: "Pending", aiScore: 0, aiJustification: "" };
+			// Extract form data
+			const form = get(formData);
 
-        // 🔥 **Pre-screening based on rejection criteria**
-        const province = form.businessAddressProvince.toLowerCase().trim();
-        const city = form.businessAddressCity.toLowerCase().trim();
+			// Save application to Firestore
+			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+			await addDoc(applicationsCollection, {
+				applicationID,
+				...form,
+				submittedAt: new Date(),
+			});
 
-        if (province !== "kwazulu-natal" && province !== "kzn") {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not located in KwaZulu-Natal." };
-        } else if (!["durban", "pietermaritzburg", "umhlanga", "ballito", "richards bay", "newcastle"].includes(city)) {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not in Durban or nearby cities in KZN." };
-        } else if (form.areYouDUTStudent === "Yes") {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Current DUT students are referred to Innobiz." };
-        } else if (form.registrationNumber) {
-            const companyYear = parseInt(form.registrationNumber.split("/")[0]); // Extract YYYY from "YYYY/NNNNNN/06"
-            if (currentYear - companyYear > 5) {
-                aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company registration is older than 5 years." };
-            }
-        } else if (form.taxCompliance !== "Yes") {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company does not meet compliance requirements." };
-        }
+			showModal.set(false);
+			alert("🎉 Application submitted successfully!");
+			goto('/track-application/tracker');
 
-        // If rejected, save the application immediately
-        if (aiResponse.aiRecommendation === "Rejected") {
-            const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-            await addDoc(applicationsCollection, {
-                applicationID,
-                ...form,
-                submittedAt: new Date(),
-                aiRecommendation: aiResponse.aiRecommendation,
-                aiScore: aiResponse.aiScore,
-                aiJustification: aiResponse.aiJustification,
-            });
+		} catch (error) {
+			console.error("🔥 Firestore Error:", error);
+			alert("Error submitting application. Please try again.");
+			showModal.set(false);
+		}
+	};
 
-            showModal.set(false);
-            alert(`Application Rejected: ${aiResponse.aiJustification}`);
-            return;
-        }
-
-        // **Proceed with AI API Call if not rejected**
-        const applicationData = {
-            company_name: form.businessName,
-            company_registration_no: form.registrationNumber,
-            no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
-            sector: form.natureOfBusiness,
-            current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
-            current_business_turnover: parseInt(form.revenueFor2024 || "0"),
-            business_description: form.businessDescription,
-            tax_clearance: form.taxCompliance,
-            initial_support: form.motivation,
-        };
-
-        // Send to AI
-        aiResponse = await submitToAI(applicationData);
-
-        // Save Application with AI Response
-        const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-        await addDoc(applicationsCollection, {
-            applicationID,
-            ...form,
-            submittedAt: new Date(),
-            aiRecommendation: aiResponse.aiRecommendation,
-            aiScore: aiResponse.aiScore,
-            aiJustification: aiResponse.aiJustification,
-        });
-
-        showModal.set(false);
-        goto('/track-application/tracker');
-
-    } catch (error) {
-        console.error("🔥 Firestore Error:", error);
-        alert("Error submitting application. Please try again.");
-        showModal.set(false);
-    }
-};
 	const fetchApplicationData = async (userId) => {
 		try {
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
@@ -792,15 +760,15 @@ const submitForm = async () => {
 								<Select.Value placeholder="Select Response" />
 							</Select.Trigger>
 							<Select.Content>
-								<Select.Item value="below-metric">Below Metric</Select.Item>
-								<Select.Item value="metric">Metric</Select.Item>
-								<Select.Item value="under-graduate">
+								<Select.Item value="Below Metric">Below Metric</Select.Item>
+								<Select.Item value="Metric">Metric</Select.Item>
+								<Select.Item value="Under Graduate">
 									Under Graduate (Certificate, Diploma, Bachelors etc)
 								</Select.Item>
-								<Select.Item value="post-graduate">
+								<Select.Item value="Post Graduate">
 									Post Graduate (Honors, Post Graduate Diploma etc)
 								</Select.Item>
-								<Select.Item value="master">Masters</Select.Item>
+								<Select.Item value="Masters">Masters</Select.Item>
 								<Select.Item value="phd">PhD</Select.Item>
 							</Select.Content>
 						</Select.Root>
@@ -889,20 +857,39 @@ const submitForm = async () => {
 							bind:value={$formData.businessAddress}
 							placeholder="Enter your business address"
 						/>
-<Label for="business-address-province">Business Address Province</Label>
-<Input
-	id="business-address-province"
-	bind:value={$formData.businessAddressProvince}
-	placeholder="Enter your business province"
-/>
+						<Select.Root
+								selected={selectedBusinessAddressProvince}
+								onSelectedChange={(v) => {
+        if (v) {
+            $formData.businessAddressProvince = v.value;
+        }
+    }}
+						>
+							<Select.Trigger id="business-address-province">
+								<Select.Value placeholder="Select Province" />
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="Eastern Cape">Eastern Cape</Select.Item>
+								<Select.Item value="Free State">Free State</Select.Item>
+								<Select.Item value="Gauteng">Gauteng</Select.Item>
+								<Select.Item value="KwaZulu-Natal">KwaZulu-Natal</Select.Item>
+								<Select.Item value="Limpopo">Limpopo</Select.Item>
+								<Select.Item value="Mpumalanga">Mpumalanga</Select.Item>
+								<Select.Item value="North West">North West</Select.Item>
+								<Select.Item value="Northern Cape">Northern Cape</Select.Item>
+								<Select.Item value="Western Cape">Western Cape</Select.Item>
+							</Select.Content>
+						</Select.Root>
+						<input hidden bind:value={$formData.businessAddressProvince} name="businessAddressProvince" />
 
-<Label for="business-address-city">Business Address City</Label>
+
+<Label for="business-address-city">City</Label>
 <Input
 	id="business-address-city"
 	bind:value={$formData.businessAddressCity}
 	placeholder="Enter your business city"
 />
-<Label for="business-address-location">Business Address Location</Label>
+<Label for="business-address-location">Location</Label>
 <Select.Root
 							selected={selectedBusinessAddressLocation}
 							onSelectedChange={(v) => {
