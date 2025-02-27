@@ -287,18 +287,41 @@ $: selectedBusinessAddressProvince = $formData.businessAddressProvince
 	let selectedFiles = [];
 
 	// Handle File Selection
-	const handleFileSelection = (event) => {
-    const file = event.target.files[0]; // Get the selected file
+	const handleFileSelection = async (event) => {
+    const file = event.target.files[0]; // Get selected file
     const fieldName = event.target.id; // Get the ID of the input field
 
-    if (file) {
-        formData.update((data) => {
-            const updatedDocuments = { ...data.documents, [fieldName]: file };
-            return { ...data, documents: updatedDocuments };
-        });
+    if (!file) return;
+
+    const user = auth.currentUser;
+    if (!user) {
+        alert("User not logged in!");
+        return;
+    }
+
+    const userId = await getUserIdByEmail(user.email);
+    if (!userId) {
+        alert("User not found in Firestore!");
+        return;
+    }
+
+    try {
+        const storageRef = ref(storage, `Users/${userId}/Documents/${fieldName}/${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+
+        // ✅ Store only the download URL
+        formData.update((data) => ({
+            ...data,
+            documents: { ...data.documents, [fieldName]: downloadURL }
+        }));
+
+        alert(`✅ ${file.name} uploaded successfully!`);
+    } catch (error) {
+        console.error("🔥 Error uploading file:", error);
+        alert("❌ File upload failed. Please try again.");
     }
 };
-
 
 	// Function to Generate Application ID
 	const generateApplicationID = async (userId) => {
