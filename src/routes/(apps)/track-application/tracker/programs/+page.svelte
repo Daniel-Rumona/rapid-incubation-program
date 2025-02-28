@@ -1,11 +1,11 @@
 <script lang="ts">
 	import House from "lucide-svelte/icons/house";
-	import ChartLine from "lucide-svelte/icons/chart-line";
 	import ListFilter from "lucide-svelte/icons/list-filter";
 	import Package from "lucide-svelte/icons/package";
 	import Package2 from "lucide-svelte/icons/package-2";
 	import PanelLeft from "lucide-svelte/icons/panel-left";
 	import Search from "lucide-svelte/icons/search";
+	import * as Avatar from "$lib/components/ui/avatar/index.js";
 	import { Badge } from "$lib/components/ui/badge";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb";
 	import { Button } from "$lib/components/ui/button";
@@ -19,9 +19,12 @@
 	import { collection, getDocs, query, where } from "firebase/firestore";
 	import { writable } from "svelte/store";
 	import { onMount } from "svelte";
-	import { signOut } from "firebase/auth";
+	import { onAuthStateChanged, signOut } from 'firebase/auth';
 	import { goto } from "$app/navigation";
+	import { cn } from '$lib/utils';
+	import { page } from "$app/stores";
 
+	const loggedInUser = writable<{ fullName: string; email: string } | null>(null);
 
 	let selectedFilter = "All"; // Default filter category
 	let selectedTab = "all"; // Default status tab
@@ -35,9 +38,13 @@
 			console.error("Logout error:", error);
 		}
 	};
+	function getUserInitials(name?: string): string {
+		return name?.split(" ").map((n) => n[0]).join("").toUpperCase() || "?";
+	}
+
 
 	let programs = writable([]);
-	let filteredPrograms = writable([]);
+	let filteredProgramms = writable([]);
 
 	// ✅ Fetch Firestore User ID using Email
 	async function getUserIdByEmail(email) {
@@ -63,84 +70,93 @@
 
 	// ✅ Fetch User Applications
 	async function fetchUserApplications(userId) {
-    try {
-        const applicationsRef = collection(db, `Users/${userId}/Applications`);
-        const querySnapshot = await getDocs(applicationsRef);
-        const now = new Date();
-        
-        let applications = querySnapshot.docs.map(doc => {
-            let appData = doc.data();
-            let submittedAt = appData.submittedAt?.toDate(); // Convert Firestore timestamp to Date object
-            
-            if (submittedAt) {
-                const timeDiff = (now - submittedAt) / (1000 * 60 * 60); // Difference in hours
-                if (timeDiff <= 48) {
-                    appData.status = "Under Review"; // Set status if within 48 hours
-                }
-            }
-            return appData;
-        });
+		try {
+			const applicationsRef = collection(db, `Users/${userId}/Applications`);
+			const querySnapshot = await getDocs(applicationsRef);
+			const now = new Date();
 
-        return applications;
-    } catch (error) {
-        console.error("🔥 Error fetching user applications:", error);
-        return [];
-    }
-}
+			let applications = querySnapshot.docs.map(doc => {
+				let appData = doc.data();
+				let submittedAt = appData.submittedAt?.toDate(); // Convert Firestore timestamp to Date object
+
+				if (submittedAt) {
+					const timeDiff = (now - submittedAt) / (1000 * 60 * 60); // Difference in hours
+					if (timeDiff <= 48) {
+						appData.status = "Under Review"; // Set status if within 48 hours
+					}
+				}
+				return appData;
+			});
+
+			return applications;
+		} catch (error) {
+			console.error("🔥 Error fetching user applications:", error);
+			return [];
+		}
+	}
 
 
-	// ✅ Fetch Programs & Cross-Reference Applications
-	async function fetchPrograms() {
-    try {
-        console.log("📌 Fetching programs...");
-        const programsRef = collection(db, "Programs");
-        const querySnapshot = await getDocs(programsRef);
-        let fetchedPrograms = querySnapshot.docs.map(doc => ({
-            ...doc.data(),
-            id: doc.id,
-            status: "Not Applied",
-        }));
+	// ✅ Fetch Programms & Cross-Reference Applications
+	async function fetchProgramms() {
+		try {
+			console.log("📌 Fetching programs...");
+			const programsRef = collection(db, "Programms");
+			const querySnapshot = await getDocs(programsRef);
+			let fetchedProgramms = querySnapshot.docs.map(doc => ({
+				...doc.data(),
+				id: doc.id,
+				status: "Not Applied",
+			}));
 
-        console.log("✅ Programs fetched:", fetchedPrograms);
+			console.log("✅ Programms fetched:", fetchedProgramms);
 
-        const user = auth.currentUser;
-        if (user) {
-            const userId = await getUserIdByEmail(user.email);
-            if (userId) {
-                const userApplications = await fetchUserApplications(userId);
+			const user = auth.currentUser;
+			if (user) {
+				const userId = await getUserIdByEmail(user.email);
+				if (userId) {
+					const userApplications = await fetchUserApplications(userId);
 
-                fetchedPrograms = fetchedPrograms.map(program => {
-                    const appliedProgram = userApplications.find(app => app.programID === program.programID);
-                    return {
-                        ...program,
-                        status: appliedProgram ? appliedProgram.status : "Not Applied", // Updated status
-                    };
-                });
-            }
-        }
+					fetchedProgramms = fetchedProgramms.map(program => {
+						const appliedProgramm = userApplications.find(app => app.programID === program.programID);
+						return {
+							...program,
+							status: appliedProgramm ? appliedProgramm.applicationStatus : "Not Applied",
+						};
+					});
+				}
+			}
 
-        programs.set(fetchedPrograms);
-        filterPrograms();
-    } catch (error) {
-        console.error("🔥 Error fetching programs:", error);
-    }
-}
-
+			programs.set(fetchedProgramms);
+			filterProgramms();
+		} catch (error) {
+			console.error("🔥 Error fetching programs:", error);
+		}
+	}
 
 	// ✅ Apply Filters
-	function filterPrograms() {
-		programs.subscribe(allPrograms => {
-			const filtered = allPrograms.filter(program =>
+	function filterProgramms() {
+		programs.subscribe(allProgramms => {
+			const filtered = allProgramms.filter(program =>
 				(selectedFilter === "All" || program.programCategory === selectedFilter) &&
 				(selectedTab === "all" || program.status === selectedTab)
 			);
 			console.log("✅ Filtered programs:", filtered);
-			filteredPrograms.set(filtered);
+			filteredProgramms.set(filtered);
 		});
 	}
 
 	// ✅ Run on Page Load
-	onMount(fetchPrograms);
+	onMount(() => {
+		onAuthStateChanged(auth, async (user) => {
+			if (user?.email) {
+				loggedInUser.set({ fullName: user.displayName || "User", email: user.email });
+				await fetchProgramms();
+
+			} else {
+				loggedInUser.set(null);
+			}
+		});
+	});
 </script>
 <div class="bg-muted/40 flex min-h-screen w-full flex-col">
 	<div class="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
@@ -161,25 +177,27 @@
 							class="bg-primary text-primary-foreground group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full text-lg font-semibold md:text-base"
 						>
 							<Package2 class="h-5 w-5 transition-all group-hover:scale-110" />
-							<span class="sr-only">DUT Applications</span>
+							<span class="sr-only">DUT CSE Rapid Incubation Programm Applications</span>
 						</a>
 						<a
-							href="##"
-							class="text-muted-foreground hover:text-foreground flex items-center gap-4 px-2.5"
+							href="/track-application/tracker"
+							class={cn(
+		"hover:text-foreground flex items-center gap-4 px-2.5",
+		$page.url.pathname === "/track-application/tracker" ? "text-foreground" : "text-muted-foreground"
+	)}
 						>
-							<House class="h-5 w-5" />
+						<House class="h-5 w-5" />
 							Dashboard
 						</a>
-						<a href="##" class="text-foreground flex items-center gap-4 px-2.5">
-							<Package class="h-5 w-5" />
-							Programs
-						</a>
 						<a
-							href="##"
-							class="text-muted-foreground hover:text-foreground flex items-center gap-4 px-2.5"
+							href="/track-application/tracker/programs"
+							class={cn(
+		"hover:text-foreground flex items-center gap-4 px-2.5",
+		$page.url.pathname === "/track-application/tracker/programs" ? "text-foreground" : "text-muted-foreground"
+	)}
 						>
-							<ChartLine class="h-5 w-5" />
-							Settings
+						<Package class="h-5 w-5" />
+							Programms
 						</a>
 					</nav>
 				</Sheet.Content>
@@ -191,7 +209,7 @@
 					</Breadcrumb.Item>
 					<Breadcrumb.Separator />
 					<Breadcrumb.Item>
-						<Breadcrumb.Link href="##">Programs</Breadcrumb.Link>
+						<Breadcrumb.Link href="##">Programms</Breadcrumb.Link>
 					</Breadcrumb.Item>
 
 
@@ -207,26 +225,15 @@
 			</div>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger asChild let:builder>
-					<Button
-						builders={[builder]}
-						variant="outline"
-						size="icon"
-						class="overflow-hidden rounded-full"
-					>
-						<img
-							src="/images/placeholder-user.jpg"
-							width={36}
-							height={36}
-							alt="Avatar"
-							class="overflow-hidden rounded-full"
-						/>
+					<Button builders={[builder]} variant="ghost" class="relative h-8 w-8 rounded-full">
+						<Avatar.Root class="h-9 w-9">
+							<Avatar.Fallback>{getUserInitials($loggedInUser?.fullName || "John Doe")}</Avatar.Fallback>
+						</Avatar.Root>
+						<span class="sr-only">Toggle user menu</span>
 					</Button>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
 					<DropdownMenu.Label>My Account</DropdownMenu.Label>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item>Settings</DropdownMenu.Item>
-					<DropdownMenu.Item>Support</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Item on:click={handleLogout}>Logout</DropdownMenu.Item>
 				</DropdownMenu.Content>
@@ -283,7 +290,7 @@
 						data-x-chunk-description="A list of programs in a table with actions. Each row has an image, name, status, price, total sales, created at and actions."
 					>
 						<Card.Header>
-							<Card.Title>Programs</Card.Title>
+							<Card.Title>Programms</Card.Title>
 						</Card.Header>
 						<Card.Content>
 							<Table.Root>
@@ -297,7 +304,7 @@
 									</Table.Row>
 								</Table.Header>
 								<Table.Body>
-									{#each $filteredPrograms as program}
+									{#each $filteredProgramms as program}
 										<Table.Row>
 											<Table.Cell>{program.programName}</Table.Cell>
 											<Table.Cell>{program.programCategory}</Table.Cell>
@@ -326,7 +333,7 @@
 						</Card.Content>
 						<Card.Footer>
 							<div class="text-muted-foreground text-xs">
-								Showing <strong>1-10</strong> of <strong>32</strong> Programs
+								Showing <strong>1-10</strong> of <strong>32</strong> Programms
 							</div>
 						</Card.Footer>
 					</Card.Root>
