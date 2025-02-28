@@ -1,6 +1,5 @@
 <script lang="ts">
 	import House from "lucide-svelte/icons/house";
-	import ChartLine from "lucide-svelte/icons/chart-line";
 	import Package from "lucide-svelte/icons/package";
 	import Package2 from "lucide-svelte/icons/package-2";
 	import PanelLeft from "lucide-svelte/icons/panel-left";
@@ -25,6 +24,8 @@
 	import { db } from "$lib/firebase";
 	import { collection, getDocs, query, where } from "firebase/firestore";
 	import { onMount } from 'svelte';
+	import { cn } from '$lib/utils';
+	import { page } from '$app/stores';
 
 	const loggedInUser = writable<{ fullName: string; email: string } | null>(null);
 
@@ -163,25 +164,30 @@
 							class="bg-primary text-primary-foreground group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full text-lg font-semibold md:text-base"
 						>
 							<Package2 class="h-5 w-5 transition-all group-hover:scale-110" />
-							<span class="sr-only">DUT Applications</span>
+							<span class="sr-only">DUT CSE Rapid Incubation Programm Applications</span>
 						</a>
 						<a
 							href="/track-application/tracker"
-							class="text-muted-foreground hover:text-foreground flex items-center gap-4 px-2.5"
+							class={cn(
+		"hover:text-foreground flex items-center gap-4 px-2.5",
+		$page.url.pathname === "/track-application/tracker"
+			? "text-foreground"
+			: "text-muted-foreground"
+	)}
+
 						>
 							<House class="h-5 w-5" />
 							Dashboard
 						</a>
-						<a href="/track-application/tracker/programs" class="text-foreground flex items-center gap-4 px-2.5">
+						<a href="/track-application/tracker/programs"
+							 class={cn(
+		"hover:text-foreground flex items-center gap-4 px-2.5",
+		$page.url.pathname === "/track-application/tracker/programs"
+			? "text-foreground"
+			: "text-muted-foreground"
+	)}>
 							<Package class="h-5 w-5" />
 							Programs
-						</a>
-						<a
-							href="##"
-							class="text-muted-foreground hover:text-foreground flex items-center gap-4 px-2.5"
-						>
-							<ChartLine class="h-5 w-5" />
-							Settings
 						</a>
 					</nav>
 				</Sheet.Content>
@@ -213,9 +219,6 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
 					<DropdownMenu.Label>My Account</DropdownMenu.Label>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item>Settings</DropdownMenu.Item>
-					<DropdownMenu.Item>Support</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Item on:click={handleLogout}>Logout</DropdownMenu.Item>
 				</DropdownMenu.Content>
