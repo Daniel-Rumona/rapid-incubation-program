@@ -37,6 +37,10 @@
 		registrationNumber: "",
 		dateOfRegistration: "",
 		businessAddress: "",
+		businessAddressProvince: "",
+		businessAddressCity:"",
+		businessAddressLocation: "",
+		businessEmail: "",
 		socialMediaWebsiteAddress:"",
 		socialMediaInstagramAddress:"",
 		socialMediaXAddress:"",
@@ -69,22 +73,22 @@
 		bbbbeeCertificate: "",
 		motivation: "",
 		challenges: "",
+		softwareAreas: {
+			"Accounting & Finance": [],
+			"Human Resources": [],
+			"Marketing": [],
+			"Risk Management": [],
+			"Other": []
+		},
 		interventions: {
 			"Marketing and Sales": [],
 			"Financial Management & Systems": [],
 			"Regulatory Compliance": [],
-			"Business Mentorship": [],
+			"Business Mentorship & Coaching": [],
 			"Technical Training & Webinars": [],
 			"Operational Support": [],
 			"Growth Plan": [],
 			"Project Management": []
-		},
-		softwareAreas: {
-			"Financial Management": false,
-			"Human Resources": false,
-			"Marketing": false,
-			"Risk Management": false,
-			"Other": ""
 		},
 		documents: [] // 🔹 Store file URLs here
 	});
@@ -232,6 +236,18 @@
 		? {
 			label: $formData.validTaxPin,
 			value: $formData.validTaxPin
+		}
+		: undefined;
+	$: selectedBusinessAddressLocation = $formData.businessAddressLocation
+		? {
+			label: $formData.businessAddressLocation,
+			value: $formData.businessAddressLocation
+		}
+		: undefined;
+	$: selectedBusinessAddressProvince = $formData.businessAddressProvince
+		? {
+			label: $formData.businessAddressProvince,
+			value: $formData.businessAddressProvince
 		}
 		: undefined;
 	// Calculate Business Growth Rate
@@ -874,6 +890,58 @@
 							placeholder="Enter your business address"
 							class="w-full"
 						/>
+						<Label for="business-name">Province</Label>
+						<Select.Root
+							selected={selectedBusinessAddressProvince}
+							onSelectedChange={(v) => {
+        if (v) {
+            $formData.businessAddressProvince = v.value;
+        }
+    }}
+						>
+							<Select.Trigger id="business-address-province">
+								<Select.Value placeholder="Select Province" />
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="Eastern Cape">Eastern Cape</Select.Item>
+								<Select.Item value="Free State">Free State</Select.Item>
+								<Select.Item value="Gauteng">Gauteng</Select.Item>
+								<Select.Item value="KwaZulu-Natal">KwaZulu-Natal</Select.Item>
+								<Select.Item value="Limpopo">Limpopo</Select.Item>
+								<Select.Item value="Mpumalanga">Mpumalanga</Select.Item>
+								<Select.Item value="North West">North West</Select.Item>
+								<Select.Item value="Northern Cape">Northern Cape</Select.Item>
+								<Select.Item value="Western Cape">Western Cape</Select.Item>
+							</Select.Content>
+						</Select.Root>
+						<input hidden bind:value={$formData.businessAddressProvince} name="businessAddressProvince" />
+
+
+						<Label for="business-address-city">City</Label>
+						<Input
+							id="business-address-city"
+							bind:value={$formData.businessAddressCity}
+							placeholder="Enter your business city"
+						/>
+						<Label for="business-address-location">Location</Label>
+						<Select.Root
+							selected={selectedBusinessAddressLocation}
+							onSelectedChange={(v) => {
+								if (v) {
+									$formData.businessAddressLocation = v.value;
+								}
+							}}
+						>
+							<Select.Trigger id="business-adress-location">
+								<Select.Value placeholder="Select Location" />
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="Urban">Urban</Select.Item>
+								<Select.Item value="Township">Township</Select.Item>
+								<Select.Item value="Rural">Rural</Select.Item>
+							</Select.Content>
+						</Select.Root>
+						<input hidden bind:value={$formData.businessAddressLocation} name="businessAddressLocation" />
 						<Label for="business-postsal-code">Postal Code</Label>
 						<Input
 							id="business-postsal-code"
