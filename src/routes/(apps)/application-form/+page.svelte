@@ -102,9 +102,8 @@
 	}
 
 	const minWordCount = {
-		businessDescription: 200,
-		motivation: 200,
-		challenges: 200,
+		businessDescription: 100,
+		motivation: 100
 	};
 
 
@@ -867,7 +866,7 @@
 							placeholder="Industry/Type of Services"
 							class="w-full"
 						/>
-						<Label for="business-description">Briefly describe your business (Min: 200 words)</Label>
+						<Label for="business-description">Briefly describe your business (Min: 100 words)</Label>
 						<Textarea
 							id="business-description"
 							bind:value={$formData.businessDescription}
@@ -875,8 +874,8 @@
 							on:input={() => minWordCount.businessDescription = countWords($formData.businessDescription)}
 							class="w-full"
 						/>
-						<p class="word-count {countWords($formData.businessDescription) < 200 ? 'warning' : ''}">
-							Word count: {countWords($formData.businessDescription)} / 200
+						<p class="word-count {countWords($formData.businessDescription) < 100 ? 'warning' : ''}">
+							Word count: {countWords($formData.businessDescription)} / 100
 						</p>
 						<Label for="years-of-trading">Number of years of trading</Label>
 						<Input
@@ -1014,6 +1013,7 @@
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-lg font-medium">Step 3: Finance & Performance</Card.Title>
+						<Card.Description>Enter your revenue and number of employees for the years 2022, 2023 and 2024.</Card.Description>
 					</Card.Header>
 					<Card.Content class="grid gap-6">
 						<Card.Content class="grid gap-6">
@@ -1024,12 +1024,12 @@
 									<Input
 										id="revenue-{year}"
 										bind:value={$formData[`revenueFor${year}`]}
-										placeholder="Enter revenue for {year}"
+										placeholder="Revenue {year}"
 									/>
 									<Input
 										id="employees-{year}"
 										bind:value={$formData[`employeesFor${year}`]}
-										placeholder="Enter employees for {year}"
+										placeholder="Employees {year}"
 									/>
 								</div>
 							{/each}
@@ -1053,12 +1053,12 @@
 									<Input
 										id="revenue-{month}"
 										bind:value={$formData[`revenueForMonth${month}`]}
-										placeholder="Enter revenue for month {month}"
+										placeholder="Revenue {month}"
 									/>
 									<Input
 										id="employees-{month}"
 										bind:value={$formData[`employeesForMonth${month}`]}
-										placeholder="Enter employees for {month}"
+										placeholder="Employees {month}"
 									/>
 								</div>
 							{/each}
