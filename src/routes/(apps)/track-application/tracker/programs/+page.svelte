@@ -28,6 +28,8 @@
 
 	let selectedFilter = "All"; // Default filter category
 	let selectedTab = "all"; // Default status tab
+	let totalPrograms = writable(0);
+
 
 	// Handle Logout
 	const handleLogout = async () => {
@@ -108,7 +110,8 @@
 				status: "Not Applied",
 			}));
 
-			console.log("✅ Programms fetched:", fetchedProgramms);
+			// 🔹 Update total program count
+        		totalPrograms.set(querySnapshot.size);
 
 			const user = auth.currentUser;
 			if (user) {
