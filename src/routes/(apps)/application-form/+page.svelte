@@ -450,7 +450,6 @@
 		2: ["revenueFor2022", "revenueFor2023", "revenueFor2024", "revenueForMonth1","revenueForMonth2","revenueForMonth3","revenueForMonth4", "employeesFor2022", "employeesFor2023","employeesFor2024",
 			"employeesForMonth1","employeesForMonth2","employeesForMonth3","employeesForMonth4", "validTaxPin"],
 		3: ["motivation"],
-		4: ["documents"] // Ensure at least one document is uploaded
 	};
 
 	// Navigation Functions
@@ -523,7 +522,7 @@
 			employeesForMonth3: "Employees for Month 3",
 			employeesForMonth4: "Employees for Month 4",
 			whereDidYouHearAboutUs: "Where Did You Hear About Us?",
-			validTaxPin: "Valid Tax Pin?",
+			validTaxPin: "Confirm If You Have Valid Tax Pin",
 			taxCompliance: "Tax Compliance",
 			bbbbeeCertificate: "BBBEE Certificate",
 			documents: "Required Documents"
@@ -568,20 +567,16 @@
 		setTimeout(updateModalMessage, 2000); // Change message every 2 seconds
 	};
 
-	const submitForm = async () => {
+		const submitForm = async () => {
 		try {
-			showModal.set(true); // Show modal
-			updateModalMessage(); // Start cycling through messages
+
+			showModal.set(true); // Show loading modal
+			updateModalMessage();
 
 			const user = auth.currentUser;
 			if (!user) {
 				alert("User not logged in!");
-				showModal.set(false); // Hide modal on error
-				return;
-			}
-
-			if (get(currentStep) === 4 && get(formData).documents.length === 0) {
-				alert("❌ Please upload at least one document before submitting.");
+				showModal.set(false);
 				return;
 			}
 
@@ -595,53 +590,75 @@
 			// 🔹 Generate Application ID
 			const applicationID = await generateApplicationID(userId);
 
-			// 🔹 Format Data for AI Submission
-			const applicationData = {
-				company_name: $formData.businessName,
-				company_registration_no: $formData.registrationNumber,
-				no_of_years_trading: parseInt($formData.yearsOfTrading || "0"),
-				sector: $formData.natureOfBusiness,
-				current_number_of_employees: parseInt($formData.employees || "0"),
-				current_business_turnover: parseInt($formData.annualTurnover || "0"),
-				business_description: $formData.businessDescription,
-				tax_clearance: $formData.taxCompliance,
-				initial_support: $formData.motivation,
-			};
+			// Extract form data
+			const form = get(formData);
+			const currentYear = new Date().getFullYear();
+			let aiResponse = { aiRecommendation: "Pending", aiScore: 0, aiJustification: "" };
 
-			// 🔹 Send Data to AI Scoring API
-			const aiResponse = await submitToAI(applicationData);
+			// 🔥 **Pre-screening based on rejection criteria**
+			const province = form.businessAddressProvince.toLowerCase().trim();
+			const city = form.businessAddressCity.toLowerCase().trim();
 
-			if (!aiResponse) {
-				// alert("Failed to retrieve AI scoring. Please try again.");
+			if (province !== "kwazulu-natal" && province !== "kzn") {
+				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not located in KwaZulu-Natal." };
+			} else if (!["durban", "pietermaritzburg", "umhlanga", "ballito", "richards bay", "newcastle"].includes(city)) {
+				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not in Durban or nearby cities in KZN." };
+			} else if (form.areYouDUTStudent === "Yes") {
+				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Current DUT students are referred to Innobiz." };
+			} else if (form.registrationNumber) {
+				const companyYear = parseInt(form.registrationNumber.split("/")[0]); // Extract YYYY from "YYYY/NNNNNN/06"
+				if (currentYear - companyYear > 5) {
+					aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company registration is older than 5 years." };
+				}
+			} else if (form.taxCompliance !== "Yes") {
+				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company does not meet compliance requirements." };
+			}
+
+			// If rejected, save the application immediately
+			if (aiResponse.aiRecommendation === "Rejected") {
+				const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+				await addDoc(applicationsCollection, {
+					applicationID,
+					...form,
+					submittedAt: new Date(),
+					aiRecommendation: aiResponse.aiRecommendation,
+					aiScore: aiResponse.aiScore,
+					aiJustification: aiResponse.aiJustification,
+				});
+
 				showModal.set(false);
+				alert(`Application Rejected: ${aiResponse.aiJustification}`);
 				return;
 			}
 
-			// 🔹 Reference to Applications Collection
+			// **Proceed with AI API Call if not rejected**
+			const applicationData = {
+				company_name: form.businessName,
+				company_registration_no: form.registrationNumber,
+				no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
+				sector: form.natureOfBusiness,
+				current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
+				current_business_turnover: parseInt(form.revenueFor2024 || "0"),
+				business_description: form.businessDescription,
+				tax_clearance: form.taxCompliance,
+				initial_support: form.motivation,
+			};
+
+			// Send to AI
+			aiResponse = await submitToAI(applicationData);
+
+			// Save Application with AI Response
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-			let uploadedFiles = [];
-
-			// 🔹 Upload Documents to Firebase Storage
-			for (let file of selectedFiles) {
-				const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
-				const snapshot = await uploadBytes(storageRef, file);
-				const downloadURL = await getDownloadURL(snapshot.ref);
-				uploadedFiles.push(downloadURL);
-			}
-
-			// 🔹 Save Data to Firestore (Including AI Scoring)
 			await addDoc(applicationsCollection, {
 				applicationID,
-				...$formData,
-				documents: uploadedFiles,
+				...form,
 				submittedAt: new Date(),
 				aiRecommendation: aiResponse.aiRecommendation,
 				aiScore: aiResponse.aiScore,
 				aiJustification: aiResponse.aiJustification,
 			});
 
-			// alert(`✅ Application Submitted Successfully! AI Score: ${aiResponse.aiScore}`);
-			showModal.set(false); // Hide modal after submission
+			showModal.set(false);
 			goto('/track-application/tracker');
 
 		} catch (error) {
@@ -650,7 +667,6 @@
 			showModal.set(false);
 		}
 	};
-
 	const fetchApplicationData = async (userId) => {
 		try {
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
