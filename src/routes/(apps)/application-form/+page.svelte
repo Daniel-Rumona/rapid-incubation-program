@@ -1225,6 +1225,13 @@
 							accept=".pdf,.doc,.docx,.jpg,.png"
 							on:change={handleFileSelection}
 						/>
+<Label for="tax-clearance-upload">Upload Tax Clearance</Label>
+						<Input
+							id="tax-clearance-upload"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
 					</Card.Content>
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
