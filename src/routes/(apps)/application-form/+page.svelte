@@ -1145,7 +1145,8 @@
 								{#each softwareAreas as area}
 									<div class="flex items-center gap-2">
 										<Checkbox
-											checked={$formData.softwareAreas[area].includes(area)}
+											checked={$formData.softwareAreas?.[area]?.includes(area) || false}
+											on:click={() => updateSoftwareArea(area)}
 										/>
 										<Label>{area}</Label>
 									</div>
