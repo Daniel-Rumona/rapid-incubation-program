@@ -1,4 +1,3 @@
-Fix it here
 <script lang="ts">
 	import { get, writable } from 'svelte/store';
 	import { onMount } from "svelte";
@@ -38,10 +37,6 @@ Fix it here
 		registrationNumber: "",
 		dateOfRegistration: "",
 		businessAddress: "",
-businessAddressProvince: "",
-businessAddressCity:"",
-businessAddressLocation: "",
-		businessEmail: "",
 		socialMediaWebsiteAddress:"",
 		socialMediaInstagramAddress:"",
 		socialMediaXAddress:"",
@@ -69,27 +64,27 @@ businessAddressLocation: "",
 		employeesForMonth3:"",
 		employeesForMonth4:"",
 		whereDidYouHearAboutUs: "",
-		registeredWithSARS: "",
+		validTaxPin: "",
 		taxCompliance: "",
 		bbbbeeCertificate: "",
 		motivation: "",
 		challenges: "",
-		softwareAreas: {
-			"Accounting & Finance": [],
-			"Human Resources": [],
-			"Marketing": [],
-			"Risk Management": [],
-			"Other": []
-		},
 		interventions: {
 			"Marketing and Sales": [],
 			"Financial Management & Systems": [],
 			"Regulatory Compliance": [],
-			"Business Mentorship & Coaching": [],
+			"Business Mentorship": [],
 			"Technical Training & Webinars": [],
 			"Operational Support": [],
 			"Growth Plan": [],
 			"Project Management": []
+		},
+		softwareAreas: {
+			"Financial Management": false,
+			"Human Resources": false,
+			"Marketing": false,
+			"Risk Management": false,
+			"Other": ""
 		},
 		documents: [] // 🔹 Store file URLs here
 	});
@@ -109,7 +104,7 @@ businessAddressLocation: "",
 	};
 
 
-	const softwareAreas = ["Accounting & Finance", "Human Resources", "Marketing", "Risk Management", "Other"]
+	const softwareAreas = ["Financial Management", "Human Resources", "Marketing", "Risk Management", "Other"]
 	const sections = {
 		"Marketing and Sales": [
 			"Website Development & Domain Email Registration", "Website Hosting", "Company Logo",
@@ -195,28 +190,6 @@ businessAddressLocation: "",
 			};
 		});
 	};
-	const updateSoftwareArea = (area: string) => {
-		formData.update(data => {
-			// Ensure `softwareAreas` exists
-			const updatedSoftwareAreas = data.softwareAreas || {};
-
-			// Toggle selection
-			let updatedArea = updatedSoftwareAreas[area] || [];
-			if (updatedArea.includes(area)) {
-				updatedArea = updatedArea.filter(i => i !== area);
-			} else {
-				updatedArea.push(area);
-			}
-
-			return {
-				...data,
-				softwareAreas: {
-					...updatedSoftwareAreas,
-					[area]: updatedArea
-				}
-			};
-		});
-	};
 
 
 	// Steps for Navigation
@@ -255,22 +228,10 @@ businessAddressLocation: "",
 		}
 		: undefined;
 
-	$: selectedRegisteredWithSARS = $formData.registeredWithSARS
+	$: selectedValidTaxPin = $formData.validTaxPin
 		? {
-			label: $formData.registeredWithSARS,
-			value: $formData.registeredWithSARS
-		}
-		: undefined;
-	$: selectedBusinessAddressLocation = $formData.businessAddressLocation
-		? {
-			label: $formData.businessAddressLocation,
-			value: $formData.businessAddressLocation
-		}
-		: undefined;
-$: selectedBusinessAddressProvince = $formData.businessAddressProvince
-		? {
-			label: $formData.businessAddressProvince,
-			value: $formData.businessAddressProvince
+			label: $formData.validTaxPin,
+			value: $formData.validTaxPin
 		}
 		: undefined;
 	// Calculate Business Growth Rate
@@ -287,41 +248,9 @@ $: selectedBusinessAddressProvince = $formData.businessAddressProvince
 	let selectedFiles = [];
 
 	// Handle File Selection
-	const handleFileSelection = async (event) => {
-    const file = event.target.files[0]; // Get selected file
-    const fieldName = event.target.id; // Get the ID of the input field
-
-    if (!file) return;
-
-    const user = auth.currentUser;
-    if (!user) {
-        alert("User not logged in!");
-        return;
-    }
-
-    const userId = await getUserIdByEmail(user.email);
-    if (!userId) {
-        alert("User not found in Firestore!");
-        return;
-    }
-
-    try {
-        const storageRef = ref(storage, `Users/${userId}/Documents/${fieldName}/${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-
-        // ✅ Store only the download URL
-        formData.update((data) => ({
-            ...data,
-            documents: { ...data.documents, [fieldName]: downloadURL }
-        }));
-
-        alert(`✅ ${file.name} uploaded successfully!`);
-    } catch (error) {
-        console.error("🔥 Error uploading file:", error);
-        alert("❌ File upload failed. Please try again.");
-    }
-};
+	const handleFileSelection = (event) => {
+		selectedFiles = event.target.files;
+	};
 
 	// Function to Generate Application ID
 	const generateApplicationID = async (userId) => {
@@ -502,8 +431,10 @@ $: selectedBusinessAddressProvince = $formData.businessAddressProvince
 	const requiredFields = {
 		0: ["fullName", "applicantGender", "applicantIDNumber", "applicantAge", "applicantAcademicQualification", "areYouDUTStudent"],
 		1: ["businessName", "natureOfBusiness", "businessDescription", "yearsOfTrading", "registrationNumber", "dateOfRegistration", "businessAddress", "postalCode"],
-		2: ["revenueFor2022", "revenueFor2023", "revenueFor2024", "employeesFor2022", "employeesFor2023","employeesFor2024", "registeredWithSARS"],
-		3: ["motivation"]
+		2: ["revenueFor2022", "revenueFor2023", "revenueFor2024", "revenueForMonth1","revenueForMonth2","revenueForMonth3","revenueForMonth4", "employeesFor2022", "employeesFor2023","employeesFor2024",
+			"employeesForMonth1","employeesForMonth2","employeesForMonth3","employeesForMonth4", "validTaxPin"],
+		3: ["motivation"],
+		4: ["documents"] // Ensure at least one document is uploaded
 	};
 
 	// Navigation Functions
@@ -512,14 +443,8 @@ $: selectedBusinessAddressProvince = $formData.businessAddressProvince
 	}
 
 	function validateStep() {
-		const step = get(currentStep);
-		if (step === undefined || step < 0 || step >= steps.length) {
-			console.error("❌ Invalid step index.");
-			return false;
-		}
-
-		const stepFields = requiredFields[step];
-		if (!stepFields) return true; // No required fields
+		const stepFields = requiredFields[get(currentStep)];
+		if (!stepFields) return true; // No required fields for this step
 
 		const formValues = get(formData);
 		let isValid = true;
@@ -528,29 +453,85 @@ $: selectedBusinessAddressProvince = $formData.businessAddressProvince
 
 		stepFields.forEach((field) => {
 			const value = formValues[field];
-			if (!value || (Array.isArray(value) && value.length === 0)) {
+
+			if (
+				value === undefined || // Undefined value
+				value === null || // Null value
+				(typeof value === "string" && value.trim() === "") || // Empty string
+				(typeof value === "number" && isNaN(value)) || // NaN check
+				(Array.isArray(value) && value.length === 0) // Empty array (for checkboxes)
+			) {
 				isValid = false;
 				missingFields.push(field);
 			}
+
+			// ✅ Check word count if the field is in minWordCount
 			if (minWordCount[field] && typeof value === "string") {
 				const wordCount = countWords(value);
 				if (wordCount < minWordCount[field]) {
 					isValid = false;
-					wordCountErrors.push(`${field} must have at least ${minWordCount[field]} words (currently ${wordCount} words)`);
+					wordCountErrors.push(`${field} must be at least ${minWordCount[field]} words (currently ${wordCount} words)`);
 				}
 			}
 		});
 
+		const fieldLabels = {
+			firstName: "First Name",
+			lastName: "Last Name",
+			fullName: "Full Name",
+			applicantGender: "Gender",
+			applicantAge: "Age",
+			applicantIDNumber: "ID Number",
+			areYouDUTStudent: "Are you a DUT Student",
+			applicantAcademicQualification: "Academic Qualification",
+			registrationNumber: "Registration Number",
+			phoneNumber: "Phone Number",
+			businessName: "Business Name",
+			businessAddress: "Business Address",
+			postalCode: "Postal Code",
+			natureOfBusiness: "Nature of Business",
+			businessDescription: "Business Description",
+			yearsOfTrading: "Years of Trading",
+			revenueFor2022: "Revenue for 2022",
+			revenueFor2023: "Revenue for 2023",
+			revenueFor2024: "Revenue for 2024",
+			employeesFor2022: "Employees for 2022",
+			employeesFor2023: "Employees for 2023",
+			employeesFor2024: "Employees for 2024",
+			revenueForMonth1: "Revenue for Month 1",
+			revenueForMonth2: "Revenue for Month 2",
+			revenueForMonth3: "Revenue for Month 3",
+			revenueForMonth4: "Revenue for Month 4",
+			employeesForMonth1: "Employees for Month 1",
+			employeesForMonth2: "Employees for Month 2",
+			employeesForMonth3: "Employees for Month 3",
+			employeesForMonth4: "Employees for Month 4",
+			whereDidYouHearAboutUs: "Where Did You Hear About Us?",
+			validTaxPin: "Valid Tax Pin?",
+			taxCompliance: "Tax Compliance",
+			bbbbeeCertificate: "BBBEE Certificate",
+			documents: "Required Documents"
+		};
+
 		if (!isValid) {
 			let errorMessage = "";
+
 			if (missingFields.length > 0) {
-				errorMessage += `❌ Missing fields: ${missingFields.join(", ")}.\n`;
+				const readableMissingFields = missingFields.map(field => fieldLabels[field] || field);
+				errorMessage += `❌ Please fill in the required fields: ${readableMissingFields.join(", ")}.\n`;
 			}
+
 			if (wordCountErrors.length > 0) {
-				errorMessage += `⚠️ Word count issues:\n${wordCountErrors.join("\n")}`;
+				const readableWordCountErrors = wordCountErrors.map(error => {
+					const [field, issue] = error.split(" must be at least ");
+					return `${fieldLabels[field] || field} must be at least ${issue}`;
+				});
+				errorMessage += `⚠️ Word count issues:\n${readableWordCountErrors.join("\n")}`;
 			}
+
 			alert(errorMessage);
 		}
+
 
 		return isValid;
 	}
@@ -571,124 +552,89 @@ $: selectedBusinessAddressProvince = $formData.businessAddressProvince
 		setTimeout(updateModalMessage, 2000); // Change message every 2 seconds
 	};
 
-	const requiredDocuments = [
-    "cipc-upload",
-    "bbbbee-certificate",
-    "company-profile-upload",
-    "id-copy",
-    "bank-statement-upload"
-];
+	const submitForm = async () => {
+		try {
+			showModal.set(true); // Show modal
+			updateModalMessage(); // Start cycling through messages
 
-const validateDocuments = () => {
-    const form = get(formData);
-    const missingDocs = requiredDocuments.filter(doc => !form.documents[doc]);
+			const user = auth.currentUser;
+			if (!user) {
+				alert("User not logged in!");
+				showModal.set(false); // Hide modal on error
+				return;
+			}
 
-    if (missingDocs.length > 0) {
-        alert(`❌ Please upload the following documents before submitting: ${missingDocs.join(", ")}`);
-        return false;
-    }
-    return true;
-};
+			if (get(currentStep) === 4 && get(formData).documents.length === 0) {
+				alert("❌ Please upload at least one document before submitting.");
+				return;
+			}
 
-const submitForm = async () => {
-    try {
+			const userId = await getUserIdByEmail(user.email);
+			if (!userId) {
+				alert("User not found in Firestore!");
+				showModal.set(false);
+				return;
+			}
 
-        showModal.set(true); // Show loading modal
-        updateModalMessage();
+			// 🔹 Generate Application ID
+			const applicationID = await generateApplicationID(userId);
 
-        const user = auth.currentUser;
-        if (!user) {
-            alert("User not logged in!");
-            showModal.set(false);
-            return;
-        }
+			// 🔹 Format Data for AI Submission
+			const applicationData = {
+				company_name: $formData.businessName,
+				company_registration_no: $formData.registrationNumber,
+				no_of_years_trading: parseInt($formData.yearsOfTrading || "0"),
+				sector: $formData.natureOfBusiness,
+				current_number_of_employees: parseInt($formData.employees || "0"),
+				current_business_turnover: parseInt($formData.annualTurnover || "0"),
+				business_description: $formData.businessDescription,
+				tax_clearance: $formData.taxCompliance,
+				initial_support: $formData.motivation,
+			};
 
-        const userId = await getUserIdByEmail(user.email);
-        if (!userId) {
-            alert("User not found in Firestore!");
-            showModal.set(false);
-            return;
-        }
+			// 🔹 Send Data to AI Scoring API
+			const aiResponse = await submitToAI(applicationData);
 
-        // 🔹 Generate Application ID
-        const applicationID = await generateApplicationID(userId);
+			if (!aiResponse) {
+				// alert("Failed to retrieve AI scoring. Please try again.");
+				showModal.set(false);
+				return;
+			}
 
-        // Extract form data
-        const form = get(formData);
-        const currentYear = new Date().getFullYear();
-        let aiResponse = { aiRecommendation: "Pending", aiScore: 0, aiJustification: "" };
+			// 🔹 Reference to Applications Collection
+			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+			let uploadedFiles = [];
 
-        // 🔥 **Pre-screening based on rejection criteria**
-        const province = form.businessAddressProvince.toLowerCase().trim();
-        const city = form.businessAddressCity.toLowerCase().trim();
+			// 🔹 Upload Documents to Firebase Storage
+			for (let file of selectedFiles) {
+				const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
+				const snapshot = await uploadBytes(storageRef, file);
+				const downloadURL = await getDownloadURL(snapshot.ref);
+				uploadedFiles.push(downloadURL);
+			}
 
-        if (province !== "kwazulu-natal" && province !== "kzn") {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not located in KwaZulu-Natal." };
-        } else if (!["durban", "pietermaritzburg", "umhlanga", "ballito", "richards bay", "newcastle"].includes(city)) {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not in Durban or nearby cities in KZN." };
-        } else if (form.areYouDUTStudent === "Yes") {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Current DUT students are referred to Innobiz." };
-        } else if (form.registrationNumber) {
-            const companyYear = parseInt(form.registrationNumber.split("/")[0]); // Extract YYYY from "YYYY/NNNNNN/06"
-            if (currentYear - companyYear > 5) {
-                aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company registration is older than 5 years." };
-            }
-        } else if (form.taxCompliance !== "Yes") {
-            aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company does not meet compliance requirements." };
-        }
+			// 🔹 Save Data to Firestore (Including AI Scoring)
+			await addDoc(applicationsCollection, {
+				applicationID,
+				...$formData,
+				documents: uploadedFiles,
+				submittedAt: new Date(),
+				aiRecommendation: aiResponse.aiRecommendation,
+				aiScore: aiResponse.aiScore,
+				aiJustification: aiResponse.aiJustification,
+			});
 
-        // If rejected, save the application immediately
-        if (aiResponse.aiRecommendation === "Rejected") {
-            const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-            await addDoc(applicationsCollection, {
-                applicationID,
-                ...form,
-                submittedAt: new Date(),
-                aiRecommendation: aiResponse.aiRecommendation,
-                aiScore: aiResponse.aiScore,
-                aiJustification: aiResponse.aiJustification,
-            });
+			// alert(`✅ Application Submitted Successfully! AI Score: ${aiResponse.aiScore}`);
+			showModal.set(false); // Hide modal after submission
+			goto('/track-application/tracker');
 
-            showModal.set(false);
-            return;
-        }
+		} catch (error) {
+			console.error("🔥 Firestore Error:", error);
+			alert("Error submitting application. Please try again.");
+			showModal.set(false);
+		}
+	};
 
-        // **Proceed with AI API Call if not rejected**
-        const applicationData = {
-            company_name: form.businessName,
-            company_registration_no: form.registrationNumber,
-            no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
-            sector: form.natureOfBusiness,
-            current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
-            current_business_turnover: parseInt(form.revenueFor2024 || "0"),
-            business_description: form.businessDescription,
-            tax_clearance: form.taxCompliance,
-            initial_support: form.motivation,
-        };
-
-        // Send to AI
-        aiResponse = await submitToAI(applicationData);
-
-        // Save Application with AI Response
-        const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-        await addDoc(applicationsCollection, {
-            applicationID,
-            ...form,
-            submittedAt: new Date(),
-            aiRecommendation: aiResponse.aiRecommendation,
-            aiScore: aiResponse.aiScore,
-            aiJustification: aiResponse.aiJustification,
-        });
-
-        showModal.set(false);
-        goto('/track-application/tracker');
-
-    } catch (error) {
-        console.error("🔥 Firestore Error:", error);
-        alert("Error submitting application. Please try again.");
-        showModal.set(false);
-    }
-};
 	const fetchApplicationData = async (userId) => {
 		try {
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
@@ -719,13 +665,13 @@ const submitForm = async () => {
 {/if}
 
 <!-- Form Wrapper -->
-<div class="flex flex-col items-center">
+<div class="flex flex-col items-center w-full px-4 sm:px-6 md:px-8">
 	<Card.Header class="text-center">
-		<Card.Title class="text-xl font-semibold">DUT CSE Rapid Incubation Program Application</Card.Title>
+		<Card.Title class="text-xl font-semibold">DUT CSE Rapid Incubation Programm Application</Card.Title>
 	</Card.Header>
 
 	<!-- Step Container -->
-	<div class="mx-auto h-[500px] w-[1200px] rounded-lg p-6 shadow-md mb-2">
+	<div class="mx-auto w-full max-w-4xl rounded-lg p-4 sm:p-6 shadow-md mb-2 overflow-auto">
 		{#if $currentStep === 0}
 			<div transition:fly={{ y: 20, opacity: 0 }} class="w-full">
 				<Card.Root>
@@ -740,6 +686,7 @@ const submitForm = async () => {
 							bind:value={$formData.firstName}
 							placeholder="Enter your first name"
 							on:input={updateFullName}
+							class="w-full"
 						/>
 						<Label for="last-name">Surname</Label>
 						<Input
@@ -747,7 +694,10 @@ const submitForm = async () => {
 							bind:value={$formData.lastName}
 							placeholder="Enter your surname"
 							on:input={updateFullName}
+							class="w-full"
 						/>
+						<Label for="phone-number">Phone Number</Label>
+						<Input id="phone-number" bind:value={$formData.phoneNumber} placeholder="Enter your phone number" class="w-full"/>
 						<Label for="applicant-id-number">ID Number</Label>
 						<Input
 							id="applicant-id-number"
@@ -759,6 +709,7 @@ const submitForm = async () => {
 									formData.update(data => ({ ...data, applicantIDNumber: "" }));
 								}
 							}}
+							class="w-full"
 						/>
 						<Label for="gender">Select Gender</Label>
 						<Select.Root
@@ -785,6 +736,7 @@ const submitForm = async () => {
 							bind:value={$formData.applicantAge}
 							on:blur={validateAge}
 							placeholder="Enter your age"
+							class="w-full"
 						/>
 						<Label for="gender">Do You Have Any Disability</Label>
 						<Select.Root
@@ -828,7 +780,7 @@ const submitForm = async () => {
 									Post Graduate (Honors, Post Graduate Diploma etc)
 								</Select.Item>
 								<Select.Item value="Masters">Masters</Select.Item>
-								<Select.Item value="phd">PhD</Select.Item>
+								<Select.Item value="PhD">PhD</Select.Item>
 							</Select.Content>
 						</Select.Root>
 						<input hidden bind:value={$formData.applicantAcademicQualification} name="applicantAcademicQualification" />
@@ -874,12 +826,14 @@ const submitForm = async () => {
 							id="business-name"
 							bind:value={$formData.businessName}
 							placeholder="Enter your business name"
+							class="w-full"
 						/>
 						<Label for="nature-business">Nature of Business</Label>
 						<Input
 							id="nature-business"
 							bind:value={$formData.natureOfBusiness}
 							placeholder="Industry/Type of Services"
+							class="w-full"
 						/>
 						<Label for="business-description">Briefly describe your business (Min: 200 words)</Label>
 						<Textarea
@@ -887,6 +841,7 @@ const submitForm = async () => {
 							bind:value={$formData.businessDescription}
 							placeholder="Describe your business"
 							on:input={() => minWordCount.businessDescription = countWords($formData.businessDescription)}
+							class="w-full"
 						/>
 						<p class="word-count {countWords($formData.businessDescription) < 200 ? 'warning' : ''}">
 							Word count: {countWords($formData.businessDescription)} / 200
@@ -897,6 +852,7 @@ const submitForm = async () => {
 							bind:value={$formData.yearsOfTrading}
 							placeholder="Enter number of years"
 							on:input={(e) => formData.update(data => ({ ...data, yearsOfTrading: validateYearsOfTrading(e.target.value) }))}
+							class="w-full"
 						/>
 						<Label for="registration-number">Registration Number</Label>
 						<Input
@@ -904,135 +860,58 @@ const submitForm = async () => {
 							bind:value={$formData.registrationNumber}
 							placeholder="Enter Your Registration Number"
 							on:input={(e) => formData.update(data => ({ ...data, registrationNumber: formatRegistrationNumber(e.target.value) }))}
+							class="w-full"
 						/>
 						<Label for="date-registration">Date of Registration</Label>
-						<Input id="date-registration" type="date" bind:value={$formData.dateOfRegistration} />
+						<Input id="date-registration" type="date" bind:value={$formData.dateOfRegistration} class="w-full"/>
 
 
 
-						<Label for="business-name">Business Address</Label>
+						<Label for="business-address">Business Address</Label>
 						<Input
-							id="business-name"
+							id="business-address"
 							bind:value={$formData.businessAddress}
 							placeholder="Enter your business address"
+							class="w-full"
 						/>
-						<Select.Root
-								selected={selectedBusinessAddressProvince}
-								onSelectedChange={(v) => {
-        if (v) {
-            $formData.businessAddressProvince = v.value;
-        }
-    }}
-						>
-							<Select.Trigger id="business-address-province">
-								<Select.Value placeholder="Select Province" />
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="Eastern Cape">Eastern Cape</Select.Item>
-								<Select.Item value="Free State">Free State</Select.Item>
-								<Select.Item value="Gauteng">Gauteng</Select.Item>
-								<Select.Item value="KwaZulu-Natal">KwaZulu-Natal</Select.Item>
-								<Select.Item value="Limpopo">Limpopo</Select.Item>
-								<Select.Item value="Mpumalanga">Mpumalanga</Select.Item>
-								<Select.Item value="North West">North West</Select.Item>
-								<Select.Item value="Northern Cape">Northern Cape</Select.Item>
-								<Select.Item value="Western Cape">Western Cape</Select.Item>
-							</Select.Content>
-						</Select.Root>
-						<input hidden bind:value={$formData.businessAddressProvince} name="businessAddressProvince" />
-
-
-<Label for="business-address-city">City</Label>
-<Input
-	id="business-address-city"
-	bind:value={$formData.businessAddressCity}
-	placeholder="Enter your business city"
-/>
-<Label for="business-address-location">Location</Label>
-<Select.Root
-							selected={selectedBusinessAddressLocation}
-							onSelectedChange={(v) => {
-								if (v) {
-									$formData.businessAddressLocation = v.value;
-								}
-							}}
-						>
-							<Select.Trigger id="business-adress-location">
-								<Select.Value placeholder="Select Location" />
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="Urban">Urban</Select.Item>
-								<Select.Item value="Township">Township</Select.Item>
-								<Select.Item value="Rural">Rural</Select.Item>
-							</Select.Content>
-						</Select.Root>
-						<input hidden bind:value={$formData.businessAddressLocation} name="businessAddressLocation" />
-
-						<Label for="business-name">Postal Code</Label>
+						<Label for="business-postsal-code">Postal Code</Label>
 						<Input
-							id="business-name"
+							id="business-postsal-code"
 							bind:value={$formData.postalCode}
-							placeholder="Enter your business address"
+							placeholder="Enter your business postal code"
+							class="w-full"
 						/>
 
-						<Card.Root class="mx-auto w-[950px]">
+						<Card.Root class="mx-auto w-full">
 							<Card.Header>
 								<Card.Title class="text-lg font-small text-center">Website And Business Social Media Links</Card.Title>
 							</Card.Header>
 							<Card.Content>
-								<div class="flex flex-row justify-between my-4">
-									<Label for="website-address">Website Address</Label>
-									<Input
-										id="website-address"
-										bind:value={$formData.socialMediaWebsiteAddress}
-										placeholder="Enter your business website address"
-										class="w-[350px]"
-									/>
-								</div>
-								<div class="flex flex-row justify-between my-4">
-									<Label for="social-media-x-address">X (Formerly Twitter) Address</Label>
-									<Input
-										id="social-media-x-address"
-										bind:value={$formData.socialMediaXAddress}
-										placeholder="Enter your business X (Formerly Twitter) address"
-											class="w-[350px]"
-									/>
-								</div>
-								<div class="flex flex-row justify-between my-4">
-									<Label for="social-media-instagram-address">Instagram Address</Label>
-									<Input
-										id="social-media-instagram-address"
-										bind:value={$formData.socialMediaInstagramAddress}
-										placeholder="Enter your business Instagram address"
-											class="w-[350px]"
-									/>
-								</div>
-								<div class="flex flex-row justify-between my-4">
-									<Label for="social-media-facebook-address">Facebook Address</Label>
-									<Input
-										id="social-media-facebook-address"
-										bind:value={$formData.socialMediaFacebookAddress}
-										placeholder="Enter your business Facebook address"
-											class="w-[350px]"
-									/>
-								</div>
-								<div class="flex flex-row justify-between my-4">
-									<Label for="social-media-linkedin-address">LinkedIn</Label>
-									<Input
-										id="social-media-linkedin-address"
-										bind:value={$formData.socialMediaLinkedInAddress}
-										placeholder="Enter your business LinkedIn address"
-											class="w-[350px]"
-									/>
-								</div>
-								<div class="flex flex-row justify-between my-4">
-									<Label for="social-media-other">Other</Label>
-									<Input
-										id="social-media-other"
-										bind:value={$formData.socialMediaOtherAddress}
-										placeholder="Enter any other platform link"
-											class="w-[350px]"
-									/>
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<Label for="website-address">Website Address</Label>
+										<Input id="website-address" bind:value={$formData.socialMediaWebsiteAddress} placeholder="Enter your business website address" class="w-full" />
+									</div>
+									<div>
+										<Label for="social-media-x-address">X (Formerly Twitter) Address</Label>
+										<Input id="social-media-x-address" bind:value={$formData.socialMediaXAddress} placeholder="Enter your business X (Formerly Twitter) address" class="w-full" />
+									</div>
+									<div>
+										<Label for="social-media-instagram-address">Instagram Address</Label>
+										<Input id="social-media-instagram-address" bind:value={$formData.socialMediaInstagramAddress} placeholder="Enter your business Instagram address" class="w-full" />
+									</div>
+									<div>
+										<Label for="social-media-facebook-address">Facebook Address</Label>
+										<Input id="social-media-facebook-address" bind:value={$formData.socialMediaFacebookAddress} placeholder="Enter your business Facebook address" class="w-full" />
+									</div>
+									<div>
+										<Label for="social-media-linkedin-address">LinkedIn</Label>
+										<Input id="social-media-linkedin-address" bind:value={$formData.socialMediaLinkedInAddress} placeholder="Enter your business LinkedIn address" class="w-full" />
+									</div>
+									<div>
+										<Label for="social-media-other">Other</Label>
+										<Input id="social-media-other" bind:value={$formData.socialMediaOtherAddress} placeholder="Enter any other platform link" class="w-full" />
+									</div>
 								</div>
 							</Card.Content>
 						</Card.Root>
@@ -1055,74 +934,62 @@ const submitForm = async () => {
 					<Card.Content class="grid gap-6">
 						<Card.Content class="grid gap-6">
 							<!-- 🔹 Yearly Data (2022 - 2024) -->
-							<div class="grid grid-cols-2 gap-4">
-								{#each [2022, 2023, 2024] as year}
-									<div class="flex items-center gap-2">
-										<Label for="revenueFor{year}" class="w-40">Revenue for {year}</Label>
-										<Input
-												id="revenueFor{year}"
-												type="number"
-												class="w-40"
-												bind:value={$formData[`revenueFor${year}`]}
-												on:input={(e) => formData.update(data => ({ ...data, [`revenueFor${year}`]: parseFloat(e.target.value) || 0 }))}
-												placeholder="Enter revenue"
-										/>
-									</div>
-									<div class="flex items-center gap-2">
-										<Label for="employeesFor{year}" class="w-40">Employees for {year}</Label>
-										<Input
-												id="employeesFor{year}"
-												type="number"
-												class="w-40"
-												bind:value={$formData[`employeesFor${year}`]}
-												on:input={(e) => formData.update(data => ({ ...data, [`employeesFor${year}`]: parseInt(e.target.value) || 0 }))}
-												placeholder="Enter employees"
-										/>
-									</div>
-								{/each}
-							</div>
-
+							{#each [2022, 2023, 2024] as year}
+								<div class="grid grid-cols-3 gap-4">
+									<Label for="revenue-{year}">Year: {year}</Label>
+									<Input
+										id="revenue-{year}"
+										bind:value={$formData[`revenueFor${year}`]}
+										placeholder="Enter revenue for {year}"
+									/>
+									<Input
+										id="employees-{year}"
+										bind:value={$formData[`employeesFor${year}`]}
+										placeholder="Enter employees for {year}"
+									/>
+								</div>
+							{/each}
 							<h3 class="text-lg font-medium">Enter your revenue and employees for the past four months</h3>
-
 							<!-- 🔹 Monthly Data -->
-							<div class="grid grid-cols-2 gap-4">
-								{#each [1, 2, 3, 4] as month}
-									<div class="flex items-center gap-2">
-										<Label for="revenueForMonth{month}" class="w-40">Revenue (Month {month})</Label>
-										<Input
-												id="revenueForMonth{month}"
-												type="number"
-												class="w-40"
-												bind:value={$formData[`revenueForMonth${month}`]}
-												on:input={(e) => formData.update(data => ({ ...data, [`revenueForMonth${month}`]: parseFloat(e.target.value) || 0 }))}
-												placeholder="Enter revenue"
-										/>
-									</div>
-									<div class="flex items-center gap-2">
-										<Label for="employeesForMonth{month}" class="w-40">Employees (Month {month})</Label>
-										<Input
-												id="employeesForMonth{month}"
-												type="number"
-												class="w-40"
-												bind:value={$formData[`employeesForMonth${month}`]}
-												on:input={(e) => formData.update(data => ({ ...data, [`employeesForMonth${month}`]: parseInt(e.target.value) || 0 }))}
-												placeholder="Enter employees"
-										/>
-									</div>
-								{/each}
-							</div>
-						</Card.Content>
+							{#each [1, 2, 3, 4] as month}
+								<div class="grid grid-cols-3 gap-4">
+									<Select.Root
+										onSelectedChange={(v) => formData.update(data => ({ ...data, selectedMonth: v.value }))}
+									>
+										<Select.Trigger id="month">
+											<Select.Value placeholder="Select Month" />
+										</Select.Trigger>
+										<Select.Content>
+											{#each ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as monthOption}
+												<Select.Item value={monthOption}>{monthOption}</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
 
-						<Label for="sars-registration">Registered with SARS?</Label>
+									<Input
+										id="revenue-{month}"
+										bind:value={$formData[`revenueForMonth${month}`]}
+										placeholder="Enter revenue for month {month}"
+									/>
+									<Input
+										id="employees-{month}"
+										bind:value={$formData[`employeesForMonth${month}`]}
+										placeholder="Enter employees for {month}"
+									/>
+								</div>
+							{/each}
+						</Card.Content>
+						<Label for="valid-tax-pin">Do You Have A Valid Tax Pin (Clearance)?</Label>
+
 						<Select.Root
-								selected={selectedRegisteredWithSARS}
-								onSelectedChange={(v) => {
-                        if (v) {
-                            $formData.registeredWithSARS = v.value;
-                        }
-                    }}
+							selected={selectedValidTaxPin}
+							onSelectedChange={(v) => {
+    if (v) {
+      $formData.validTaxPin = v.value;
+    }
+  }}
 						>
-							<Select.Trigger id="sars-registration">
+							<Select.Trigger id="valid-tax-pin">
 								<Select.Value placeholder="Select" />
 							</Select.Trigger>
 							<Select.Content>
@@ -1132,9 +999,9 @@ const submitForm = async () => {
 							</Select.Content>
 						</Select.Root>
 
-						<input hidden bind:value={$formData.registeredWithSARS} name="registeredWithSARS" />
-					</Card.Content>
+						<input hidden bind:value={$formData.validTaxPin} name="validTaxPin" />
 
+					</Card.Content>
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
 						<Button on:click={nextStep}>Next →</Button>
@@ -1142,7 +1009,6 @@ const submitForm = async () => {
 				</Card.Root>
 			</div>
 		{/if}
-
 
 		{#if $currentStep === 3}
 			<div transition:fly={{ y: 20, opacity: 0 }} class="w-full">
@@ -1211,14 +1077,14 @@ const submitForm = async () => {
 								{#each softwareAreas as area}
 									<div class="flex items-center gap-2">
 										<Checkbox
-												checked={$formData.softwareAreas?.[area]?.includes(area) || false}
-												on:click={() => updateSoftwareArea(area)}
+											checked={$formData.softwareAreas[area].includes(area)}
 										/>
 										<Label>{area}</Label>
 									</div>
 								{/each}
 							</div>
 						</div>
+
 					</Card.Content>
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
@@ -1238,17 +1104,43 @@ const submitForm = async () => {
 						>
 					</Card.Header>
 					<Card.Content class="grid gap-6">
-    {#each requiredDocuments as doc}
-        <Label for={doc}>{doc.replace("-", " ").toUpperCase()}</Label>
-        <Input
-            id={doc}
-            type="file"
-            accept=".pdf,.doc,.docx,.jpg,.png"
-            on:change={handleFileSelection}
-        />
-        
-    {/each}
-</Card.Content>
+						<Label for="cipc-upload">Upload CIPC</Label>
+						<Input
+							id="cipc-upload"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
+						<Label for="bbbbee-certificate">Upload BBBEE Certificate</Label>
+						<Input
+							id="bbbbee-certificate"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
+						<Label for="company-profile-upload">Upload Company Profile</Label>
+						<Input
+							id="company-profile-upload"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
+						<Label for="id-copy">Upload Certified Copy Of ID</Label>
+						<Input
+							id="id-copy"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
+						<Label for="bank-statement-upload">Upload Business Bank Statement (last 3 months)
+						</Label>
+						<Input
+							id="bank-statement-upload"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
+					</Card.Content>
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
 						<Button on:click={submitForm} class="rounded bg-green-500 px-4 py-2 text-white">
