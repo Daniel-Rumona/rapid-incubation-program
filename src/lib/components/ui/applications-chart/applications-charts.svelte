@@ -1,31 +1,24 @@
-<script lang="ts">
+<script>
 	import { onMount } from "svelte";
-import { writable, get } from "svelte/store";  // ✅ Correct import
+	import { writable, get } from "svelte/store";
 	import { collection, getDocs } from "firebase/firestore";
-	import { scaleLinear } from "d3-scale";
 	import { db } from "$lib/firebase";
+	import { Timestamp } from "firebase/firestore";
+	import * as d3 from "d3";
 
-	// 🔹 Props
-	export let isDashboard: boolean = false;
+	let currentView = "Daily";
+	let periodIndex = 0;
+	let currentMonth = new Date().toLocaleString("default", { month: "short" });
+	let currentYear = new Date().getFullYear();
 
-	// 🔹 Writable Stores
-	let applications = writable([]);
-	let groupedData = writable([]);
-	let currentView = writable("daily"); // "daily", "weekly", "monthly"
-	let currentIndex = writable(0);
+	let applications = writable([]); // ✅ Ensure applications is an array
+	let data = writable({ Daily: [], Weekly: [], Monthly: [] });
 
-	// 🔹 Chart Dimensions (Adjust for Dashboard Mode)
-	const padding = { top: 20, right: 15, bottom: 40, left: 45 };
-	let width = isDashboard ? 250 : 1200;
-	let height = isDashboard ? 250 : 400;
-
-	// 🔹 Fetch applications from Firestore
+	// ✅ Fetch applications from Firebase Firestore
 	const fetchApplications = async () => {
 		try {
-			console.log("🔍 Fetching applications...");
 			const usersRef = collection(db, "Users");
 			const usersSnapshot = await getDocs(usersRef);
-
 			let allApplications = [];
 
 			for (const userDoc of usersSnapshot.docs) {
@@ -34,176 +27,200 @@ import { writable, get } from "svelte/store";  // ✅ Correct import
 
 				applicationsSnapshot.forEach((appDoc) => {
 					const appData = appDoc.data();
-					if (appData.submittedAt?.seconds) {
-						allApplications.push({
-							submittedAt: new Date(appData.submittedAt.seconds * 1000), // Convert Firestore timestamp
-						});
+					if (appData.submittedAt instanceof Timestamp) {
+						allApplications.push({ submittedAt: appData.submittedAt.toDate() });
+					} else if (appData.submittedAt?.seconds) {
+						allApplications.push({ submittedAt: new Date(appData.submittedAt.seconds * 1000) });
 					}
 				});
 			}
 
-			// Store applications
-			applications.set(allApplications);
-			console.log("✅ Applications Loaded:", allApplications);
-			groupApplications("daily"); // Default to daily view
+			applications.set(allApplications); // ✅ Store applications in Svelte store
+			generateData(allApplications);
 		} catch (error) {
 			console.error("🔥 Error Fetching Applications:", error);
 		}
 	};
 
-	// 🔹 Group applications by daily, weekly, or monthly
-	const groupApplications = (view) => {
-		currentView.set(view);
-		let allApps = get(applications);
+	// ✅ Generate Data for Views (Daily, Weekly, Monthly)
+	function generateData(apps = []) {
+		if (!Array.isArray(apps)) {
+			console.error("🔥 applications is not an array:", apps);
+			return;
+		}
 
-		let grouped = [];
-		let dateMap = new Map();
+		let today = new Date();
 
-		allApps.forEach(({ submittedAt }) => {
-			let key;
-
-			if (view === "daily") {
-				key = submittedAt.toISOString().split("T")[0]; // YYYY-MM-DD
-			} else if (view === "weekly") {
-				let startOfWeek = new Date(submittedAt);
-				startOfWeek.setDate(submittedAt.getDate() - submittedAt.getDay()); // Get first day of week (Sunday)
-				key = startOfWeek.toISOString().split("T")[0];
-			} else if (view === "monthly") {
-				key = `${submittedAt.getFullYear()}-${(submittedAt.getMonth() + 1)
-					.toString()
-					.padStart(2, "0")}`;
-			}
-
-			dateMap.set(key, (dateMap.get(key) || 0) + 1);
+		// ✅ Daily View (Monday - Friday, move by 7 days)
+		let monday = new Date(today);
+		monday.setDate(today.getDate() - today.getDay() + 1 + periodIndex * 7);
+		let dailyData = Array.from({ length: 5 }, (_, i) => {
+			let date = new Date(monday);
+			date.setDate(monday.getDate() + i);
+			return {
+				date,
+				value: apps.filter((app) => app.submittedAt.toDateString() === date.toDateString()).length,
+			};
 		});
 
-		grouped = Array.from(dateMap.entries()).map(([name, total]) => ({
-			name,
-			total,
+		// ✅ Weekly View (Always show Week 1 - 4, move month)
+		let newMonth = new Date(today.setMonth(today.getMonth() + periodIndex)).toLocaleString("default", { month: "short" });
+		currentMonth = newMonth;
+		let weekData = Array.from({ length: 4 }, (_, i) => ({
+			week: `Week ${i + 1} (${currentMonth})`,
+			value: apps.filter((app) => Math.ceil(app.submittedAt.getDate() / 7) === i + 1).length,
 		}));
 
-		// Sort by date ascending
-		grouped.sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
+		// ✅ Monthly View (Jan - Feb with Year, move by years)
+		let newYear = currentYear + periodIndex;
+		let monthData = Array.from({ length: 12 }, (_, i) => ({
+			month: new Date(newYear, i).toLocaleString("default", { month: "short" }),
+			value: apps.filter((app) => app.submittedAt.getMonth() === i).length,
+		}));
 
-		// Paginate (Dashboard Mode: Only Show Latest 7 Entries)
-		let pageSize = isDashboard ? 7 : view === "daily" ? 30 : view === "weekly" ? 10 : 6;
-		groupedData.set(grouped.slice(get(currentIndex) * pageSize, (get(currentIndex) + 1) * pageSize));
+		data.set({ Daily: dailyData, Weekly: weekData, Monthly: monthData });
+		drawChart();
+	}
 
-		console.log("📊 Grouped Data:", grouped);
-	};
+	// ✅ Move to Next or Previous Period
+	function updatePeriod(direction) {
+		if (direction === "next") periodIndex++;
+		else periodIndex--;
 
-	// 🔹 Navigation (Next & Previous)
-	const nextPeriod = () => {
-		currentIndex.update((idx) => idx + 1);
-		groupApplications(get(currentView));
-	};
+		generateData(get(applications)); // ✅ Ensure we're passing an array
+	}
 
-	const prevPeriod = () => {
-		currentIndex.update((idx) => Math.max(idx - 1, 0));
-		groupApplications(get(currentView));
-	};
+	// ✅ Draw Chart
+	function drawChart() {
+		let chartData = get(data)[currentView];
 
-	// 🔹 Chart Scales
-	$: xScale = scaleLinear()
-		.domain([0, get(groupedData).length])
-		.range([padding.left, width - padding.right]);
+		// Adjust width based on view (Monthly is wider for scrolling)
+		let width = currentView === "Monthly" ? 1500 : 1000;
+		let height = 400,
+			margin = 50;
 
-	$: yScale = scaleLinear()
-		.domain([0, Math.max(...get(groupedData).map((d) => d.total), 10)])
-		.range([height - padding.bottom, padding.top]);
+		let xScale = d3.scaleBand()
+			.domain(chartData.map((d) => d.date?.toDateString() || d.week || d.month))
+			.range([margin, width - margin])
+			.padding(0.2);
 
-	$: innerWidth = width - (padding.left + padding.right);
-	$: barWidth = innerWidth / get(groupedData).length - 5;
+		let yScale = d3.scaleLinear()
+			.domain([0, d3.max(chartData, (d) => d.value)])
+			.range([height - margin, margin]);
 
-	// 🔹 Load Data on Mount
+		let svg = d3.select("#chart");
+		svg.attr("width", width).selectAll("*").remove();
+
+		let tooltip = d3.select("#tooltip");
+
+		svg.selectAll("rect")
+			.data(chartData)
+			.enter()
+			.append("rect")
+			.attr("x", (d) => xScale(d.date?.toDateString() || d.week || d.month))
+			.attr("y", (d) => yScale(d.value))
+			.attr("width", xScale.bandwidth() * 0.5) // Narrower bars for Monthly
+			.attr("height", (d) => height - margin - yScale(d.value))
+			.attr("rx", 8)
+			.attr("ry", 8)
+			.attr("fill", "#00BFFF")
+			.on("mouseover", (event, d) => {
+				tooltip
+					.style("display", "block")
+					.style("left", `${event.pageX + 10}px`)
+					.style("top", `${event.pageY - 30}px`)
+					.text(`Count: ${Math.round(d.value)}`);
+			})
+			.on("mouseout", () => {
+				tooltip.style("display", "none");
+			});
+
+		svg.append("g").attr("transform", `translate(0,${height - margin})`).call(d3.axisBottom(xScale));
+	}
+
 	onMount(fetchApplications);
 </script>
 
-<!-- 🔹 Controls (Hide in Dashboard Mode) -->
-{#if !isDashboard}
-	<div class="controls">
-		<button on:click={() => groupApplications("daily")}>Daily</button>
-		<button on:click={() => groupApplications("weekly")}>Weekly</button>
-		<button on:click={() => groupApplications("monthly")}>Monthly</button>
-	</div>
+<!-- UI Layout -->
+<div class="tabs">
+	<div class="tab {currentView === 'Daily' ? 'active' : ''}" on:click={() => { currentView = "Daily"; drawChart(); }}>Daily</div>
+	<div class="tab {currentView === 'Weekly' ? 'active' : ''}" on:click={() => { currentView = "Weekly"; drawChart(); }}>Weekly</div>
+	<div class="tab {currentView === 'Monthly' ? 'active' : ''}" on:click={() => { currentView = "Monthly"; drawChart(); }}>Monthly</div>
+</div>
 
-	<!-- 🔹 Navigation -->
-	<div class="nav">
-		<button on:click={prevPeriod} disabled={$currentIndex === 0}>← Previous</button>
-		<span>Viewing {$currentView} data</span>
-		<button on:click={nextPeriod}>Next →</button>
-	</div>
-{/if}
-
-<!-- 🔹 Scrollable Chart Container -->
-<div class="chart-container">
-	<div class="chart">
-		<svg width={width} height={height}>
-			<!-- Y-Axis -->
-			<g class="axis y-axis">
-				{#each [0, Math.max(...$groupedData.map((d) => d.total), 10)] as tick}
-					<g transform="translate(0, {yScale(tick)})">
-						<text stroke="none" font-size="12" fill="#888888" text-anchor="end" x="40" y="-4">
-							<tspan>{tick}</tspan>
-						</text>
-					</g>
-				{/each}
-			</g>
-
-			<!-- X-Axis -->
-			<g class="axis x-axis">
-				{#each $groupedData as point, i}
-					<g transform="translate({xScale(i)}, {height - padding.bottom})">
-						<text stroke="none" font-size="12" fill="#888888" text-anchor="middle" x={barWidth / 2} y="15">
-							<tspan>{point.name}</tspan>
-						</text>
-					</g>
-				{/each}
-			</g>
-
-			<!-- Bars -->
-			<g>
-				{#each $groupedData as point, i}
-					<rect
-						x={xScale(i)}
-						y={yScale(point.total)}
-						width={barWidth}
-						height={yScale(0) - yScale(point.total)}
-						fill="deepskyblue"
-						rx="4"
-						ry="4"
-					/>
-				{/each}
-			</g>
-		</svg>
+<!-- Scrollable Chart -->
+<div id="chart-wrapper">
+	<div id="chart-container">
+		<svg id="chart" width="1000" height="400"></svg>
 	</div>
 </div>
 
+<!-- Navigation Buttons -->
+<div class="button-container">
+	<button on:click={() => updatePeriod("prev")}>← Prev Period</button>
+	<button on:click={() => updatePeriod("next")}>Next Period →</button>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip"></div>
+
+<!-- Styles -->
 <style>
-    .controls {
+    .tabs {
         display: flex;
-        gap: 10px;
+        justify-content: center;
+        /*border-bottom: 2px solid #ddd;*/
         margin-bottom: 10px;
-    }
-    .nav {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-    }
-    .chart-container {
         overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .tab {
+        padding: 12px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .tab.active {
+        color: #007BFF;
+        border-bottom: 3px solid #007BFF;
+    }
+    .button-container {
+        text-align: center;
+        margin-top: 10px;
+    }
+    button {
+        margin: 5px;
+        padding: 10px;
+        font-size: 14px;
+        background-color: #007BFF;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    #chart-wrapper {
         width: 100%;
-        padding-bottom: 10px;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        overflow-x: auto;
+        white-space: nowrap;
+        touch-action: pan-x;
     }
-    .chart-container::-webkit-scrollbar {
+
+    #tooltip {
+        position: absolute;
         display: none;
-    }
-    .chart {
-        display: inline-block;
-    }
-    .axis text {
-        font-size: 12px;
+        background: black;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 14px;
     }
 </style>
