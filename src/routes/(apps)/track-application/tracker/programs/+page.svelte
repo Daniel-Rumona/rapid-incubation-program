@@ -100,7 +100,7 @@
 	async function fetchProgramms() {
 		try {
 			console.log("📌 Fetching programs...");
-			const programsRef = collection(db, "Programms");
+			const programsRef = collection(db, "Programs");
 			const querySnapshot = await getDocs(programsRef);
 			let fetchedProgramms = querySnapshot.docs.map(doc => ({
 				...doc.data(),
