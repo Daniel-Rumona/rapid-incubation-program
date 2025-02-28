@@ -368,6 +368,10 @@ app.applicationStatus === "Accepted"
 									<span class="text-muted-foreground"> Sector </span>
 									<span>{$selectedApplication?.natureOfBusiness}</span>
 								</li>
+<li class="flex items-center justify-between">
+									<span class="text-muted-foreground"> Business Description </span>
+									<span>{$selectedApplication?.businessDescription}</span>
+								</li>
 								<li class="flex items-center justify-between">
 									<span class="text-muted-foreground"> Growth Rate</span>
 									<span>{$selectedApplication?.growthRate}</span>
