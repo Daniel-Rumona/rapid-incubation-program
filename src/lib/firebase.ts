@@ -14,7 +14,8 @@ import { getFunctions } from "firebase/functions";
 let firebaseApp: any = null;
 let firebaseConfig: any = null;
 let db: any = null;
-let auth: any = null; // 🔥 Declare auth globally
+let auth: any = null;
+let storage: any = null; // 🔥 Declare storage globally
 
 // ✅ Function to fetch Firebase Config from Secure API Route
 async function fetchFirebaseConfig() {
@@ -30,8 +31,9 @@ async function initializeFirebase() {
 	if (!firebaseApp) {
 		const config = await fetchFirebaseConfig();
 		firebaseApp = initializeApp(config);
-		db = getFirestore(firebaseApp); // 🔥 Initialize Firestore once
-		auth = getAuth(firebaseApp); // 🔥 Initialize Auth once
+		db = getFirestore(firebaseApp); 
+		auth = getAuth(firebaseApp);
+		storage = getStorage(firebaseApp); // 🔥 Initialize Storage
 	}
 	return firebaseApp;
 }
@@ -57,8 +59,10 @@ export const getFirebaseAuth = async () => {
 };
 
 export const getFirebaseStorage = async () => {
-	const app = await initializeFirebase();
-	return getStorage(app);
+	if (!storage) {
+		await initializeFirebase();
+	}
+	return storage;
 };
 
 export const getFirebaseFunctions = async () => {
@@ -105,8 +109,8 @@ export const getCollection = async (collectionName: string) => {
 	return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-// ✅ 🔥 Export `db` and `auth` directly to fix the import error
-export { db, auth };
+// ✅ 🔥 Export `db`, `auth`, and `storage` directly to fix import errors
+export { db, auth, storage };
 
 // ✅ Export Common Firebase Functions
 export {
