@@ -193,6 +193,26 @@
 			};
 		});
 	};
+	const updateSoftwareArea = (category: string) => {
+		formData.update((data) => {
+			let updatedCategory = [...(data.softwareAreas[category] || [])];
+
+			// ✅ Toggle selection
+			if (updatedCategory.length > 0) {
+				updatedCategory = [];
+			} else {
+				updatedCategory = category === "Other" ? [""] : [category];
+			}
+
+			return {
+				...data,
+				softwareAreas: {
+					...data.softwareAreas,
+					[category]: updatedCategory
+				}
+			};
+		});
+	};
 
 
 	// Steps for Navigation
@@ -260,12 +280,16 @@
 	});
 
 	// File Input Binding
-	let selectedFiles = [];
+	let selectedFiles: File[] = [];
 
-	// Handle File Selection
-	const handleFileSelection = (event) => {
-		selectedFiles = event.target.files;
+	const handleFileSelection = (event: Event) => {
+		const input = event.target as HTMLInputElement;
+		if (input.files) {
+			selectedFiles = Array.from(input.files);
+		}
 	};
+
+
 
 	// Function to Generate Application ID
 	const generateApplicationID = async (userId) => {
@@ -363,18 +387,18 @@
 
 	// ✅ Validate South African ID Number (13-digit with checksum)
 	function isValidSouthAfricanID(idNumber: string): boolean {
-		if (!/^\d{13}$/.test(idNumber)) return false; // Must be exactly 13 digits
+		if (!/^\d{13}$/.test(idNumber)) return false; // ✅ Must be exactly 13 digits
 
-		// Extract the birthdate (YYMMDD)
+		// 🔹 Extract the birthdate (YYMMDD)
 		const birthYear = parseInt(idNumber.substring(0, 2), 10);
 		const birthMonth = parseInt(idNumber.substring(2, 4), 10);
 		const birthDay = parseInt(idNumber.substring(4, 6), 10);
 
-		// Convert YY to YYYY (assume 1900s for 00-99, 2000s for 00-24)
+		// 🔹 Determine the full birth year correctly
 		const currentYear = new Date().getFullYear() % 100; // Get last 2 digits of the year
-		const fullYear = birthYear > currentYear ? 1900 + birthYear : 2000 + birthYear;
+		let fullYear = birthYear <= currentYear ? 2000 + birthYear : 1900 + birthYear; // ✅ Correctly infer 1900s or 2000s
 
-		// Validate Date
+		// 🔹 Validate the extracted date
 		const birthDate = new Date(fullYear, birthMonth - 1, birthDay);
 		if (
 			birthDate.getFullYear() !== fullYear ||
@@ -384,12 +408,12 @@
 			return false;
 		}
 
-		// **Luhn Algorithm Check**
+		// 🔹 Validate with the **Luhn Algorithm** (Checksum)
 		const digits = idNumber.split("").map(Number);
 		let sum = 0;
 		let alternate = false;
 
-		for (let i = digits.length - 1; i >= 0; i--) {
+		for (let i = digits.length - 2; i >= 0; i--) { // ✅ Start at second-last digit
 			let num = digits[i];
 
 			if (alternate) {
@@ -401,16 +425,29 @@
 			alternate = !alternate;
 		}
 
-		return sum % 10 === 0;
-	}
-	// ✅ Auto-format Registration Number (YYYY/NNNNNN/06)
-	function formatRegistrationNumber(value: string) {
-		// Remove non-digit characters
-		let digits = value.replace(/\D/g, "").slice(0, 10); // Max 10 digits
-		if (digits.length < 10) return digits;
+		const checksum = (10 - (sum % 10)) % 10; // ✅ Get correct checksum digit
 
-		// Format as YYYY/NNNNNN/06
-		return `${digits.slice(0, 4)}/${digits.slice(4, 10)}/06`;
+		return checksum === digits[12]; // ✅ Last digit must match calculated checksum
+	}
+
+	// ✅ Auto-format Registration Number (YYYY/NNNNNN/06)
+	function formatRegistrationNumber(value: string): string {
+		// 🔹 Remove non-digit characters and slashes
+		let digits = value.replace(/\D/g, "");
+
+		// 🔹 Ensure we have enough digits (at least 10)
+		if (digits.length < 10) return value; // Return unchanged if not enough digits
+
+		// 🔹 Extract parts
+		let year = digits.slice(0, 4); // First 4 digits = Year
+		let sequence = digits.slice(4, 10); // Next 6 digits = Unique Number
+		let suffix = "06"; // Default suffix for Pty Ltd (06)
+
+		// 🔹 If already formatted correctly, return as is
+		if (value.match(/^\d{4}\/\d{6}\/\d{2}$/)) return value;
+
+		// 🔹 Construct formatted string
+		return `${year}/${sequence}/${suffix}`;
 	}
 
 	// ✅ Ensure age is limited to 2 digits only
@@ -521,7 +558,7 @@
 			employeesForMonth3: "Employees for Month 3",
 			employeesForMonth4: "Employees for Month 4",
 			whereDidYouHearAboutUs: "Where Did You Hear About Us?",
-			validTaxPin: "Confirm If You Have Valid Tax Pin",
+			validTaxPin: "Valid Tax Pin?",
 			taxCompliance: "Tax Compliance",
 			bbbbeeCertificate: "BBBEE Certificate",
 			documents: "Required Documents"
@@ -566,71 +603,38 @@
 		setTimeout(updateModalMessage, 2000); // Change message every 2 seconds
 	};
 
-		const submitForm = async () => {
+	const submitForm = async () => {
 		try {
-
-			showModal.set(true); // Show loading modal
+			showModal.set(true);
 			updateModalMessage();
 
 			const user = auth.currentUser;
 			if (!user) {
-				alert("User not logged in!");
+				alert("❌ You must be logged in to submit.");
 				showModal.set(false);
 				return;
 			}
 
 			const userId = await getUserIdByEmail(user.email);
 			if (!userId) {
-				alert("User not found in Firestore!");
+				alert("❌ User ID not found in Firestore.");
 				showModal.set(false);
 				return;
 			}
 
-			// 🔹 Generate Application ID
+			// 🔹 Upload Documents to Firebase Storage
+			let uploadedFiles: string[] = [];
+			for (let file of selectedFiles) {
+				const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
+				const snapshot = await uploadBytes(storageRef, file);
+				const downloadURL = await getDownloadURL(snapshot.ref);
+				uploadedFiles.push(downloadURL);
+			}
+
 			const applicationID = await generateApplicationID(userId);
-
-			// Extract form data
 			const form = get(formData);
-			const currentYear = new Date().getFullYear();
-			let aiResponse = { aiRecommendation: "Pending", aiScore: 0, aiJustification: "" };
 
-			// 🔥 **Pre-screening based on rejection criteria**
-			const province = form.businessAddressProvince.toLowerCase().trim();
-			const city = form.businessAddressCity.toLowerCase().trim();
-
-			if (province !== "kwazulu-natal" && province !== "kzn") {
-				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not located in KwaZulu-Natal." };
-			} else if (!["durban", "pietermaritzburg", "umhlanga", "ballito", "richards bay", "newcastle"].includes(city)) {
-				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Applicant's business is not in Durban or nearby cities in KZN." };
-			} else if (form.areYouDUTStudent === "Yes") {
-				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Current DUT students are referred to Innobiz." };
-			} else if (form.registrationNumber) {
-				const companyYear = parseInt(form.registrationNumber.split("/")[0]); // Extract YYYY from "YYYY/NNNNNN/06"
-				if (currentYear - companyYear > 5) {
-					aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company registration is older than 5 years." };
-				}
-			} else if (form.taxCompliance !== "Yes") {
-				aiResponse = { aiRecommendation: "Rejected", aiScore: 0, aiJustification: "Company does not meet compliance requirements." };
-			}
-
-			// If rejected, save the application immediately
-			if (aiResponse.aiRecommendation === "Rejected") {
-				const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-				await addDoc(applicationsCollection, {
-					applicationID,
-					...form,
-					submittedAt: new Date(),
-					aiRecommendation: aiResponse.aiRecommendation,
-					aiScore: aiResponse.aiScore,
-					aiJustification: aiResponse.aiJustification,
-				});
-
-				showModal.set(false);
-				alert(`Application Rejected: ${aiResponse.aiJustification}`);
-				return;
-			}
-
-			// **Proceed with AI API Call if not rejected**
+			// ✅ Prepare application data for AI
 			const applicationData = {
 				company_name: form.businessName,
 				company_registration_no: form.registrationNumber,
@@ -643,14 +647,15 @@
 				initial_support: form.motivation,
 			};
 
-			// Send to AI
-			aiResponse = await submitToAI(applicationData);
+			// 🔥 Send data to AI for evaluation
+			const aiResponse = await submitToAI(applicationData);
 
-			// Save Application with AI Response
+			// ✅ Save Application to Firestore with AI Response
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
 			await addDoc(applicationsCollection, {
 				applicationID,
 				...form,
+				documents: uploadedFiles,
 				submittedAt: new Date(),
 				aiRecommendation: aiResponse.aiRecommendation,
 				aiScore: aiResponse.aiScore,
@@ -658,14 +663,16 @@
 			});
 
 			showModal.set(false);
+			alert(`✅ Application Submitted Successfully! Check Your Email For Confirmation.`);
 			goto('/track-application/tracker');
 
 		} catch (error) {
 			console.error("🔥 Firestore Error:", error);
-			alert("Error submitting application. Please try again.");
+			alert("❌ Error submitting application. Please try again.");
 			showModal.set(false);
 		}
 	};
+
 	const fetchApplicationData = async (userId) => {
 		try {
 			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
@@ -1013,7 +1020,6 @@
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-lg font-medium">Step 3: Finance & Performance</Card.Title>
-						<Card.Description>Enter your revenue and number of employees for the years 2022, 2023 and 2024.</Card.Description>
 					</Card.Header>
 					<Card.Content class="grid gap-6">
 						<Card.Content class="grid gap-6">
@@ -1053,12 +1059,12 @@
 									<Input
 										id="revenue-{month}"
 										bind:value={$formData[`revenueForMonth${month}`]}
-										placeholder="Revenue {month}"
+										placeholder="Enter revenue for month {month}"
 									/>
 									<Input
 										id="employees-{month}"
 										bind:value={$formData[`employeesForMonth${month}`]}
-										placeholder="Employees {month}"
+										placeholder="Enter employees for {month}"
 									/>
 								</div>
 							{/each}
@@ -1107,6 +1113,9 @@
 							bind:value={$formData.motivation}
 							placeholder="Explain your motivation"
 						/>
+						<p class="word-count {countWords($formData.motivation) < 100 ? 'warning' : ''}">
+							Word count: {countWords($formData.motivation)} / 100
+						</p>
 					</Card.Content>
 					<Card.Content class="grid gap-6">
 						<Label for="intervention-selection">What form of intervention do you need?</Label>
@@ -1167,9 +1176,21 @@
 										<Label>{area}</Label>
 									</div>
 								{/each}
+
+								<!-- ✅ Show Textbox if "Other" is Selected -->
+								{#if $formData.softwareAreas?.["Other"]?.length > 0}
+									<div class="flex flex-col gap-2 mt-2">
+										<Label for="other-system">Please specify:</Label>
+										<Input
+											id="other-system"
+											bind:value={$formData.softwareAreas.Other[0]}
+											placeholder="Specify other system"
+											class="w-full"
+										/>
+									</div>
+								{/if}
 							</div>
 						</div>
-
 					</Card.Content>
 					<Card.Footer class="flex justify-between">
 						<Button variant="ghost" on:click={prevStep}>← Back</Button>
@@ -1221,13 +1242,6 @@
 						</Label>
 						<Input
 							id="bank-statement-upload"
-							type="file"
-							accept=".pdf,.doc,.docx,.jpg,.png"
-							on:change={handleFileSelection}
-						/>
-<Label for="tax-clearance-upload">Upload Tax Clearance</Label>
-						<Input
-							id="tax-clearance-upload"
 							type="file"
 							accept=".pdf,.doc,.docx,.jpg,.png"
 							on:change={handleFileSelection}
