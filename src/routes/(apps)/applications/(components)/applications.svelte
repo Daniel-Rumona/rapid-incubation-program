@@ -18,7 +18,6 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 
 	import * as Pagination from '$lib/components/ui/pagination';
-	import { Progress } from '$lib/components/ui/progress';
 	import { Separator } from '$lib/components/ui/separator';
 	import { applications, fetchAllApplications } from "../(data)/applications";
 	import * as Table from '$lib/components/ui/table';
@@ -26,6 +25,33 @@
 	import { writable, get } from 'svelte/store';
 	import { collection, db, doc, getDocs, updateDoc, query,where } from "$lib/firebase"; // Firestore for updating status
 	import  {Icons} from "$lib/components/ui/icons/index";
+	import * as XLSX from "xlsx"; // ✅ Import xlsx for Excel export
+
+	function exportApplication() {
+		const app = get(selectedApplication); // ✅ Get the selected application
+
+		if (!app) {
+			alert("⚠️ No application selected for export.");
+			return;
+		}
+
+		console.log("📌 Exporting Application:", app);
+
+		// ✅ Convert application object into transposed format (headers = fields, values = row data)
+		const headers = Object.keys(app); // Extract field names
+		const values = Object.values(app); // Extract values
+
+		// ✅ Convert to worksheet format
+		const worksheet = XLSX.utils.aoa_to_sheet([headers, values]);
+
+		// ✅ Create a new workbook and append the worksheet
+		const workbook = XLSX.utils.book_new();
+		XLSX.utils.book_append_sheet(workbook, worksheet, "Application");
+
+		// ✅ Generate Excel file and trigger download
+		XLSX.writeFile(workbook, `Application_${app.applicationID || "Export"}.xlsx`);
+	}
+
 	const isLoading = writable(false); // ✅ Now it's a store
 
 	// Stores
@@ -56,123 +82,77 @@
 
 	// 🔹 Filter Logic
 	$: filteredApplications = $applications.filter(app =>
-		selectedFilter === "All" || app.status === selectedFilter
+		selectedFilter === "All" || app.applicationStatus === selectedFilter
 	);
-	function formatDate(timestamp) {
-		if (!timestamp) return "N/A"; // Handle missing values
 
-		const date = new Date(timestamp.seconds * 1000); // Convert Firestore timestamp to JS Date
+	function formatDate(timestamp) {
+		if (!timestamp) return "N/A";
+
+		let date;
+		if (timestamp.seconds) {
+			date = new Date(timestamp.seconds * 1000);  // Firestore Timestamp
+		} else {
+			date = new Date(timestamp);  // ISO string
+		}
+
 		return date.toLocaleDateString("en-GB", {
 			day: "2-digit",
 			month: "long",
 			year: "numeric",
 		});
 	}
+
 	// 🔹 Select Application
 	function selectApplication(app) {
 		selectedApplication.set(app);
 		console.log("✅ Selected Application:", get(selectedApplication)?.businessName); // Debugging log
 	}
 
-	function openRecommendationModal() {
-		const app = get(selectedApplication);
-
-		if (app?.applicationID) {
-			console.log("📌 Opening Modal for Application ID:", app.applicationID);
-
-			// Ensure we reset the state before opening
-			isModalOpen.set(false);
-			setTimeout(() => isModalOpen.set(true), 10); // Small delay to allow Svelte reactivity to process the change
-		} else {
-			console.warn("⚠️ No valid application selected");
-		}
-	}
 
 
-	// Open Status Change Modal
-	function openStatusModal() {
-		const app = get(selectedApplication);
-
-		if (app?.applicationStatus) {
-			newStatus.set(app.applicationStatus); // Preload current status
-
-			// 🔹 Reset modal state before opening
-			isStatusModalOpen.set(false);
-			setTimeout(() => isStatusModalOpen.set(true), 10); // 🔥 Add delay for reactivity
-		}
-	}
-
-	// Close Modals
-	function closeModal() {
-		isModalOpen.set(false);
-		isStatusModalOpen.set(false);
-	}
-
-	// Update Status in Firestore
-	async function updateApplicationStatus() {
-		isLoading.set(true);
-		const app = get(selectedApplication);
-		const updatedStatus = get(newStatus);
-
-		if (!app || !updatedStatus) {
-			console.warn("⚠️ No application or status selected!");
-			isLoading.set(false);
+	function openRecommendationModal(app) {
+		if (!app) {
+			console.warn("⚠️ No valid application selected.");
 			return;
 		}
 
-		try {
-			console.log(`📌 Searching for application with ID: ${app.applicationID}`);
+		// ✅ Prevent background scroll when opening
+		document.body.style.overflow = "hidden";
 
-			// 🔹 Step 1: Search all Users for the application with matching applicationID
-			const usersRef = collection(db, "Users");
-			const usersSnapshot = await getDocs(usersRef);
-
-			let appDocRef = null;
-
-			for (const userDoc of usersSnapshot.docs) {
-				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-				const q = query(applicationsRef, where("applicationID", "==", app.applicationID));
-				const querySnapshot = await getDocs(q);
-
-				if (!querySnapshot.empty) {
-					const appDoc = querySnapshot.docs[0]; // Get first matching document
-					appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id); // 🔥 Use the real document ID
-					console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
-					break; // Exit loop once we find the application
-				}
-			}
-
-			// 🔹 Step 2: If no document found, log warning
-			if (!appDocRef) {
-				console.warn("⚠️ No document found for this application ID.");
-				isLoading.set(false);
-				return;
-			}
-
-			// 🔹 Step 3: Update the application status
-			await updateDoc(appDocRef, { applicationStatus: updatedStatus });
-			console.log(`✅ Status updated to "${updatedStatus}" for Application ID: ${app.applicationID}`);
-
-			// 🔹 Step 4: Update the local store
-			selectedApplication.set({ ...get(selectedApplication), applicationStatus: updatedStatus });
-
-			// 🔹 Step 5: Close the modal with delay to reset modal state properly
-			isStatusModalOpen.set(false);
-			setTimeout(() => isStatusModalOpen.set(false), 10);
-		} catch (error) {
-			console.error("🔥 Error updating application status:", error);
-		} finally {
-			isLoading.set(false);
-		}
+		// ✅ Force reactivity by first setting modal to false
+		isModalOpen.set(false);
+		setTimeout(() => {
+			selectedApplication.set(app);
+			isModalOpen.set(true);
+		}, 10);
 	}
+
+	function closeRecommendationModal() {
+		isModalOpen.set(false);
+
+		// ✅ Restore scrolling when modal is closed
+		setTimeout(() => {
+			document.body.style.overflow = ""; // Restore scrollbar when modal closes
+		}, 300); // Slight delay ensures modal animation finishes
+	}
+
+	// Update Status in Firestore
+
 	async function fetchApplicationMetrics() {
 		try {
 			const usersRef = collection(db, "Users");
 			const usersSnapshot = await getDocs(usersRef);
 			const today = new Date();
-			const startOfWeek = new Date(today);
-			startOfWeek.setDate(today.getDate() - today.getDay()); // Start of the week
-			const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // Start of the month
+
+			// 🔹 Define the correct time ranges
+			const sevenDaysAgo = new Date();
+			sevenDaysAgo.setDate(today.getDate() - 7); // Rolling 7-day window
+
+			const currentMonth = today.getMonth();
+			const currentYear = today.getFullYear();
+
+			console.log("📌 Today's Date:", today.toISOString()); // Debug today's date
+			console.log("📌 Current Month (Index):", currentMonth, "Year:", currentYear);
 
 			let acceptedCount = 0;
 			let rejectedCount = 0;
@@ -185,23 +165,89 @@
 
 				applicationsSnapshot.forEach((appDoc) => {
 					const appData = appDoc.data();
+
 					if (appData.applicationStatus === "Accepted") acceptedCount++;
 					if (appData.applicationStatus === "Rejected") rejectedCount++;
 
-					const submittedDate = new Date(appData.submittedAt.seconds * 1000);
-					if (submittedDate >= startOfWeek) weekCount++;
-					if (submittedDate >= startOfMonth) monthCount++;
+					// ✅ Convert submittedAt timestamp properly
+					if (appData.submittedAt) {
+						let submittedDate;
+
+						// 🔹 Handle Firestore Timestamp Conversion
+						if (appData.submittedAt.seconds) {
+							submittedDate = new Date(appData.submittedAt.seconds * 1000);
+						} else {
+							// 🔹 Handle Possible ISO String Format
+							submittedDate = new Date(appData.submittedAt);
+						}
+
+						console.log("📌 Submitted At:", submittedDate.toISOString());
+						console.log("📌 Submitted Month (Index):", submittedDate.getMonth(), "Year:", submittedDate.getFullYear());
+
+						// ✅ Fix: Rolling 7-day week count
+						if (submittedDate >= sevenDaysAgo) {
+							weekCount++;
+						}
+
+						// ✅ Fix: Ensure the submitted application falls within this month & year
+						if (
+							submittedDate.getFullYear() === currentYear &&
+							submittedDate.getMonth() === currentMonth
+						) {
+							monthCount++;
+						} else {
+							console.warn(`⚠️ Skipped for Monthly Count: ${submittedDate.toISOString()}`);
+						}
+					} else {
+						console.warn("⚠️ Missing `submittedAt` field in application:", appData);
+					}
 				});
 			}
 
+			// ✅ Update the stores
 			acceptedApplications.set(acceptedCount);
 			rejectedApplications.set(rejectedCount);
 			weeklyApplications.set(weekCount);
 			monthlyApplications.set(monthCount);
+
+			console.log("✅ Updated Metrics:", {
+				acceptedCount,
+				rejectedCount,
+				weeklyApplications: weekCount,
+				monthlyApplications: monthCount,
+			});
+
 		} catch (error) {
 			console.error("🔥 Error Fetching Application Metrics:", error);
 		}
 	}
+	async function downloadUserDocuments() {
+		const app = get(selectedApplication);
+
+		if (!app || !app.documents || app.documents.length === 0) {
+			alert("⚠️ No documents available for this application.");
+			return;
+		}
+
+		try {
+			console.log("📥 Downloading Documents for:", app.applicationID);
+
+			// Loop through document URLs and trigger downloads
+			app.documents.forEach((docUrl) => {
+				const link = document.createElement("a");
+				link.href = docUrl;
+				link.target = "_blank"; // Open in new tab
+				link.download = docUrl.split("/").pop(); // Use the filename from the URL
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+			});
+		} catch (error) {
+			console.error("🔥 Error downloading documents:", error);
+			alert("❌ Error downloading documents. Please try again.");
+		}
+	}
+
 </script>
 
 <div class="flex min-h-screen w-full flex-col">
@@ -264,12 +310,12 @@
 									<DropdownMenu.Label>Filter by</DropdownMenu.Label>
 									<DropdownMenu.Separator />
 									<DropdownMenu.CheckboxItem checked={selectedFilter === 'Accepted'} on:click={() => selectedFilter = "Accepted"}>Accepted</DropdownMenu.CheckboxItem>
-									<DropdownMenu.CheckboxItem checked={selectedFilter === 'Declined'} on:click={() => selectedFilter = "Declined"}>Declined</DropdownMenu.CheckboxItem>
+									<DropdownMenu.CheckboxItem checked={selectedFilter === 'Rejected'} on:click={() => selectedFilter = "Rejected"}>Rejected</DropdownMenu.CheckboxItem>
 									<DropdownMenu.CheckboxItem checked={selectedFilter === 'All'} on:click={() => selectedFilter = "All"}>All</DropdownMenu.CheckboxItem>
 								</DropdownMenu.Content>
 							</DropdownMenu.Root>
 
-							<Button size="sm" variant="outline" class="h-7 gap-1 text-sm">
+							<Button size="sm" variant="outline" class="h-7 gap-1 text-sm" on:click={exportApplication}>
 								<File class="h-3.5 w-3.5" />
 								<span class="sr-only sm:not-sr-only">Export</span>
 							</Button>
@@ -294,33 +340,28 @@
 									</Table.Header>
 									<Table.Body>
 										{#each filteredApplications as app}
-											<Table.Row  class="{$selectedApplication?.name === app.name ? 'bg-accent' : ''} cursor-pointer hover:bg-accent " on:click={() => selectApplication(app)} >
+											<Table.Row class="cursor-pointer hover:bg-accent" on:click={() => selectApplication(app)}>
 												<Table.Cell>
 													<div class="font-medium">{app.name}</div>
 													<div class="hidden text-sm text-muted-foreground md:inline">{app.email}</div>
 												</Table.Cell>
 												<Table.Cell class="hidden sm:table-cell">{app.natureOfBusiness}</Table.Cell>
 												<Table.Cell class="hidden sm:table-cell">
-													<Badge class={`text-xs ${
-app.applicationStatus === "Accepted"
-			? "bg-blue-100 text-blue-700"
-			: app.applicationStatus === "Rejected"
-			? "bg-red-100 text-red-700"
-			: "bg-gray-100 text-gray-700"
-	}`} variant={app.applicationStatus === "Accepted" ? "secondary" : "outline"}>
-														{app.applicationStatus}
+													<Badge class={`text-xs ${app.applicationStatus === "Accepted"
+																	? "bg-blue-100 text-blue-700"
+																	: app.applicationStatus === "Rejected"
+																	? "bg-red-100 text-red-700"
+																	: "bg-gray-100 text-gray-700"
+														}`}>
+														{app.applicationStatus || "Awaiting Confirmation"}
 													</Badge>
 												</Table.Cell>
-												<Table.Cell class="hidden md:table-cell">
-													{new Date(app.submittedAt.seconds * 1000).toISOString().split("T")[0]}
-												</Table.Cell>
-
 												<Table.Cell class="hidden sm:table-cell">{app.programName}</Table.Cell>
 												<Table.Cell>
-													<Button size="sm" variant='outline' on:click={() => openRecommendationModal()}>Recommendation</Button>
-													<RecommendationModal
-														isOpen={$isModalOpen} application={$selectedApplication} on:close={() => isModalOpen.set(false)}
-													/>
+													<!-- ✅ Open Modal with Selected Application -->
+													<Button size="sm" variant="outline" on:click={(e) => { e.stopPropagation(); openRecommendationModal(app); }}>
+														Check Recommendation
+													</Button>
 												</Table.Cell>
 											</Table.Row>
 										{/each}
@@ -351,9 +392,10 @@ app.applicationStatus === "Accepted"
 							</Card.Description>
 						</div>
 						<div class="ml-auto flex items-center gap-1">
-							<Button size="sm" variant="outline" class="h-8 gap-1" on:click={openStatusModal}>
-								<Truck class="h-3.5 w-3.5" /> Change Status
+							<Button size="sm" variant="outline" class="h-8 gap-1" on:click={downloadUserDocuments}>
+								<File class="h-3.5 w-3.5" /> Download User Documents
 							</Button>
+
 						</div>
 					</Card.Header>
 					<Card.Content class="p-6 text-sm">
@@ -368,9 +410,9 @@ app.applicationStatus === "Accepted"
 									<span class="text-muted-foreground"> Sector </span>
 									<span>{$selectedApplication?.natureOfBusiness}</span>
 								</li>
-<li class="flex items-center justify-between">
+								<li class="flex items-center justify-between">
 									<span class="text-muted-foreground"> Business Description </span>
-									<span>{$selectedApplication?.businessDescription}</span>
+									<span class=text-[8px]>{$selectedApplication?.businessDescription}</span>
 								</li>
 								<li class="flex items-center justify-between">
 									<span class="text-muted-foreground"> Growth Rate</span>
@@ -380,27 +422,19 @@ app.applicationStatus === "Accepted"
 									<span class="text-muted-foreground"> Previous Year Revenue </span>
 									<span>{$selectedApplication?.revenueFor2024}</span>
 								</li>
-								<li class="flex flex-col">
-	<span class="text-muted-foreground font-semibold mb-2">Past Four Months Overview</span>
-	<table class="w-full border border-gray-300 text-sm">
-		<thead>
-			<tr class="bg-gray-100">
-				<th class="border border-gray-300 p-2 text-left">Month</th>
-				<th class="border border-gray-300 p-2 text-left">Revenue</th>
-				<th class="border border-gray-300 p-2 text-left">Employees</th>
-			</tr>
-		</thead>
-		<tbody>
-			{#each [1, 2, 3, 4] as month}
-				<tr class="border-b border-gray-300">
-					<td class="border border-gray-300 p-2">Month {month}</td>
-					<td class="border border-gray-300 p-2">{$selectedApplication?.[`revenueForMonth${month}`] || "N/A"}</td>
-					<td class="border border-gray-300 p-2">{$selectedApplication?.[`employeesForMonth${month}`] || "N/A"}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-</li>
+								<li class="flex items-center justify-between">
+									<span class="text-muted-foreground"> Past Four Months Turnover </span>
+									<span> {(
+										(parseFloat($selectedApplication?.revenueForMonth1 || "0")) +
+										(parseFloat($selectedApplication?.revenueForMonth2 || "0")) +
+										(parseFloat($selectedApplication?.revenueForMonth3 || "0")) +
+										(parseFloat($selectedApplication?.revenueForMonth4 || "0"))
+									).toFixed(2)}</span>
+								</li>
+								<li class="flex items-center justify-between">
+									<span class="text-muted-foreground"> Number Of Workers</span>
+									<span>{$selectedApplication?.employeesFor2024}</span>
+								</li>
 
 							</ul>
 							<div class="font-semibold">Top Interventions</div>
@@ -474,32 +508,15 @@ app.applicationStatus === "Accepted"
 						</Pagination.Root>
 					</Card.Footer>
 				</Card.Root>
-				<!-- Status Change Modal -->
-				<Dialog.Root open={$isStatusModalOpen} on:close={closeModal}>
-					<Dialog.Content>
-						<Dialog.Header>
-							<Dialog.Title>Change Application Status</Dialog.Title>
-						</Dialog.Header>
 
-						<div class="space-y-2">
-							<p><strong>Current Status:</strong> {$selectedApplication?.applicationStatus}</p>
-							<label for="status">Select New Status:</label>
-							<select id="status" bind:value={$newStatus} class="border rounded p-2 w-full">
-								<option value="Accepted">Accepted</option>
-								<option value="Rejected">Rejected</option>
-							</select>
-						</div>
-						<Button type="button" class="w-full" on:click={updateApplicationStatus} disabled={$isLoading}>
-							{#if $isLoading}
-								<Icons.spinner class="mr-2 h-4 w-4 animate-spin" />
-								Making Update...
-							{:else}
-								Save Change
-							{/if}
-						</Button>
-					</Dialog.Content>
-				</Dialog.Root>
 			</div>
+			<!-- ✅ Only one Recommendation Modal -->
+				<RecommendationModal
+					isOpen={$isModalOpen}
+					application={$selectedApplication}
+					on:close={closeRecommendationModal}
+				/>
+
 		</main>
 	</div>
 </div>
