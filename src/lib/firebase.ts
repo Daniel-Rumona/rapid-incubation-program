@@ -9,75 +9,30 @@ import {
 import {
 	getStorage, ref, uploadBytes, getDownloadURL
 } from "firebase/storage";
-import { getFunctions, httpsCallable } from "firebase/functions"; 
+import {getFunctions} from "firebase/functions";
 
-
-let firebaseApp: any = null;
-let firebaseConfig: any = null;
-let db: any = null;
-let auth: any = null;
-let storage: any = null; // 🔥 Declare storage globally
-const functions = getFunctions(app);
-
-// ✅ Function to fetch Firebase Config from Secure API Route
-async function fetchFirebaseConfig() {
-	if (!firebaseConfig) {
-		const res = await fetch("/api/firebase-config");
-		firebaseConfig = await res.json();
-	}
-	return firebaseConfig;
-}
-
-// ✅ Async function to initialize Firebase securely
-async function initializeFirebase() {
-	if (!firebaseApp) {
-		const config = await fetchFirebaseConfig();
-		firebaseApp = initializeApp(config);
-		db = getFirestore(firebaseApp); 
-		auth = getAuth(firebaseApp);
-		storage = getStorage(firebaseApp); // 🔥 Initialize Storage
-	}
-	return firebaseApp;
-}
-
-// ✅ Initialize Firebase & Export services
-export const getFirebaseApp = async () => {
-	const app = await initializeFirebase();
-	return app;
+// 🔹 Firebase Configuration
+const firebaseConfig = {
+	apiKey: "AIzaSyC-hA_PGMVW6BlsnZLJSUxgd2xQIFVYCvw",
+	authDomain: "dut-applications.firebaseapp.com",
+	projectId: "dut-applications",
+	storageBucket: "dut-applications.firebasestorage.app",
+	messagingSenderId: "148483229883",
+	appId: "1:148483229883:web:ec9b4c25fad86ff01f019e",
+	measurementId: "G-EP7K952RSD"
 };
 
-export const getFirestoreDB = async () => {
-	if (!db) {
-		await initializeFirebase(); 
-	}
-	return db;
-};
+// 🔥 Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-export const getFirebaseAuth = async () => {
-	if (!auth) {
-		await initializeFirebase();
-	}
-	return auth;
-};
-
-export const getFirebaseStorage = async () => {
-	if (!storage) {
-		await initializeFirebase();
-	}
-	return storage;
-};
-
-export const getFirebaseFunctions = async () => {
-	const app = await initializeFirebase();
-	return getFunctions(app, "us-central1");
-};
-
-// ✅ Google Authentication Provider
+// 🔹 Google Authentication
 const googleProvider = new GoogleAuthProvider();
 
-// ✅ Function to Sign in with Google
-export const signInWithGoogle = async () => {
-	const auth = await getFirebaseAuth();
+// 🔹 Function to Sign in with Google
+const signInWithGoogle = async () => {
 	try {
 		const result = await signInWithPopup(auth, googleProvider);
 		return result.user;
@@ -87,9 +42,8 @@ export const signInWithGoogle = async () => {
 	}
 };
 
-// ✅ Function to Sign Out
-export const logout = async () => {
-	const auth = await getFirebaseAuth();
+// 🔹 Function to Sign Out
+const logout = async () => {
 	try {
 		await signOut(auth);
 		console.log("✅ Signed out successfully.");
@@ -97,29 +51,15 @@ export const logout = async () => {
 		console.error("🔥 Sign Out Error:", error);
 	}
 };
+const functions = getFunctions(app); // ✅ Add this to use Cloud Functions
 
-// ✅ Firestore Functions
-export const addToCollection = async (collectionName: string, data: any) => {
-	const db = await getFirestoreDB();
-	return addDoc(collection(db, collectionName), data);
-};
-
-export const getCollection = async (collectionName: string) => {
-	const db = await getFirestoreDB();
-	const colRef = collection(db, collectionName);
-	const snapshot = await getDocs(colRef);
-	return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-};
-
-// ✅ 🔥 Export `db`, `auth`, and `storage` directly to fix import errors
-export { db, auth, storage };
-
-// ✅ Export Common Firebase Functions
+// ✅ Export Firebase utilities
 export {
-	collection, doc, getDoc, getDocs, updateDoc, addDoc,functions,
+	app, db, auth, storage,
+	collection, doc, getDoc, getDocs, updateDoc, addDoc,
 	createUserWithEmailAndPassword, signInWithEmailAndPassword,
-	where, query, orderBy,
+	where, query, orderBy,functions,
 	signOut, onAuthStateChanged,
 	ref, uploadBytes, getDownloadURL,
-	signInWithPopup, GoogleAuthProvider
+	signInWithPopup, GoogleAuthProvider, signInWithGoogle, logout
 };
