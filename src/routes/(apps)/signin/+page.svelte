@@ -9,11 +9,15 @@
 	import { Icons } from "$lib/components/ui/icons";
 	import { writable } from 'svelte/store';
 	import { slide } from "svelte/transition";
+	import { Eye, EyeOff } from "lucide-svelte/icons";
 	import GLTFModel from "$lib/components/ui/GLTFModel.svelte";
 
 	// ✅ Transitions
 	const isSliding = writable(false);
 	const isLoading = writable(false);
+
+	// ✅ Show/Hide Password State
+	const showPassword = writable(false);
 
 	// ✅ Handle Signup Transition
 	const goToSignup = () => {
@@ -75,11 +79,23 @@
 					<Label for="email">Email</Label>
 					<Input id="email" type="email" placeholder="m@example.com" bind:value={email} required />
 				</div>
-				<div class="grid gap-2">
+				<div class="grid gap-2 relative">
 					<Label for="password">Password</Label>
-					<Input id="password" type="password" bind:value={password} required />
+					<Input id="password" type={$showPassword ? "text" : "password"} bind:value={password} required class="pr-10" />
+					<button
+						type="button"
+						class="absolute -right-6 top-6 p-1 text-gray-500 hover:text-gray-700"
+						on:click={() => showPassword.set(!$showPassword)}
+					>
+						{#if $showPassword}
+							<EyeOff class="h-5 w-5" />
+						{:else}
+							<Eye class="h-5 w-5" />
+						{/if}
+					</button>
 					<a href="##" class="mr-auto inline-block text-sm underline">Forgot your password?</a>
 				</div>
+
 				<!-- ✅ Error Message -->
 				{#if errorMessage}
 					<p class="text-red-500 text-sm text-center">{errorMessage}</p>
