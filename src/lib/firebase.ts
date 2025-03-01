@@ -9,13 +9,15 @@ import {
 import {
 	getStorage, ref, uploadBytes, getDownloadURL
 } from "firebase/storage";
-import { getFunctions } from "firebase/functions";
+import { getFunctions, httpsCallable } from "firebase/functions"; 
+
 
 let firebaseApp: any = null;
 let firebaseConfig: any = null;
 let db: any = null;
 let auth: any = null;
 let storage: any = null; // 🔥 Declare storage globally
+const functions = getFunctions(app);
 
 // ✅ Function to fetch Firebase Config from Secure API Route
 async function fetchFirebaseConfig() {
@@ -114,7 +116,7 @@ export { db, auth, storage };
 
 // ✅ Export Common Firebase Functions
 export {
-	collection, doc, getDoc, getDocs, updateDoc, addDoc,
+	collection, doc, getDoc, getDocs, updateDoc, addDoc,functions,
 	createUserWithEmailAndPassword, signInWithEmailAndPassword,
 	where, query, orderBy,
 	signOut, onAuthStateChanged,
