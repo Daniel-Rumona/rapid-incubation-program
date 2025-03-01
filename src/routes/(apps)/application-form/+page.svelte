@@ -13,6 +13,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { httpsCallable } from "firebase/functions";
+	import { functions } from "$lib/firebase"; // Import Firebase functions
 
 	// Step Control
 	let currentStep = writable(0);
@@ -662,6 +664,18 @@
 				aiJustification: aiResponse.aiJustification,
 			});
 
+			// **🔥 Send Email Confirmation**
+			try {
+				const sendEmail = httpsCallable(functions, "sendApplicationEmail"); // Cloud Function Call
+				await sendEmail({
+					businessEmail: form.businessEmail,
+					applicantName: form.fullName || `${form.firstName} ${form.lastName}`,
+				});
+				console.log(`📧 Email sent successfully to ${form.businessEmail}`);
+			} catch (emailError) {
+				console.error("🔥 Email sending failed:", emailError);
+			}
+
 			showModal.set(false);
 			alert(`✅ Application Submitted Successfully! Check Your Email For Confirmation.`);
 			goto('/track-application/tracker');
@@ -903,7 +917,9 @@
 						<Label for="date-registration">Date of Registration</Label>
 						<Input id="date-registration" type="date" bind:value={$formData.dateOfRegistration} class="w-full"/>
 
-
+						
+							<Label for="email-address">Email Address</Label>
+							<Input id="email-address" bind:value={$formData.businessEmail} placeholder="Enter your business email address" class="w-full" />
 
 						<Label for="business-address">Business Address</Label>
 						<Input
