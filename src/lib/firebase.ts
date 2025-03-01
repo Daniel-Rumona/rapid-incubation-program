@@ -13,6 +13,7 @@ import { getFunctions } from "firebase/functions";
 
 let firebaseApp: any = null;
 let firebaseConfig: any = null;
+let db: any = null; // 🔥 Declare Firestore globally
 
 // ✅ Function to fetch Firebase Config from Secure API Route
 async function fetchFirebaseConfig() {
@@ -28,6 +29,7 @@ async function initializeFirebase() {
 	if (!firebaseApp) {
 		const config = await fetchFirebaseConfig();
 		firebaseApp = initializeApp(config);
+		db = getFirestore(firebaseApp); // 🔥 Initialize Firestore once
 	}
 	return firebaseApp;
 }
@@ -39,8 +41,10 @@ export const getFirebaseApp = async () => {
 };
 
 export const getFirestoreDB = async () => {
-	const app = await initializeFirebase();
-	return getFirestore(app);
+	if (!db) {
+		await initializeFirebase(); // Ensure Firebase is initialized
+	}
+	return db;
 };
 
 export const getFirebaseAuth = async () => {
@@ -96,6 +100,9 @@ export const getCollection = async (collectionName: string) => {
 	const snapshot = await getDocs(colRef);
 	return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
+
+// ✅ 🔥 Export `db` directly to avoid import errors
+export { db };
 
 // ✅ Export Common Firebase Functions
 export {
