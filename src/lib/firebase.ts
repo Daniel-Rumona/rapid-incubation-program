@@ -9,6 +9,7 @@ import {
 import {
 	getStorage, ref, uploadBytes, getDownloadURL
 } from "firebase/storage";
+import {getFunctions} from "firebase/functions";
 
 // 🔹 Firebase Configuration
 const firebaseConfig = {
@@ -50,13 +51,14 @@ const logout = async () => {
 		console.error("🔥 Sign Out Error:", error);
 	}
 };
+const functions = getFunctions(app); // ✅ Add this to use Cloud Functions
 
 // ✅ Export Firebase utilities
 export {
 	app, db, auth, storage,
 	collection, doc, getDoc, getDocs, updateDoc, addDoc,
 	createUserWithEmailAndPassword, signInWithEmailAndPassword,
-	where, query, orderBy,
+	where, query, orderBy,functions,
 	signOut, onAuthStateChanged,
 	ref, uploadBytes, getDownloadURL,
 	signInWithPopup, GoogleAuthProvider, signInWithGoogle, logout
