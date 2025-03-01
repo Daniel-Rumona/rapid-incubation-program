@@ -116,9 +116,6 @@
 			return;
 		}
 
-		// ✅ Prevent background scroll when opening
-		document.body.style.overflow = "hidden";
-
 		// ✅ Force reactivity by first setting modal to false
 		isModalOpen.set(false);
 		setTimeout(() => {
@@ -130,11 +127,14 @@
 	function closeRecommendationModal() {
 		isModalOpen.set(false);
 
-		// ✅ Restore scrolling when modal is closed
+		// Ensure Radix UI doesn't block scrolling
 		setTimeout(() => {
-			document.body.style.overflow = ""; // Restore scrollbar when modal closes
-		}, 300); // Slight delay ensures modal animation finishes
+			if (!get(isModalOpen)) {
+				document.body.style.overflow = ""; // ✅ Restore scrollbar only if modal is fully closed
+			}
+		}, 50);
 	}
+
 
 	// Update Status in Firestore
 
