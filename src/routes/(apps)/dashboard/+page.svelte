@@ -14,21 +14,21 @@
 	import { collection, getDocs } from "firebase/firestore";
 	import { db } from "$lib/firebase";
 
-	// Stores to hold dashboard metrics
+	// ✅ Writable stores for dashboard metrics
 	const totalApplications = writable<number>(0);
 	const totalRevenue = writable<number>(0);
 	const averageCompanyAge = writable<number>(0);
 	const averageOwnerAge = writable<number>(0);
 
 	// Fetch all applications from Firestore
+	// ✅ Fetch all applications from Firestore
 	const fetchAllApplications = async () => {
 		try {
-
 			const usersRef = collection(db, "Users");
 			const usersSnapshot = await getDocs(usersRef);
 
 			let totalApps = 0;
-			let totalRev = 0;
+			let totalRevenueSum = 0;
 			let companyAgeSum = 0;
 			let ownerAgeSum = 0;
 			let companyAgeCount = 0;
@@ -37,38 +37,38 @@
 			for (const userDoc of usersSnapshot.docs) {
 				const userID = userDoc.id;
 
-				// Reference Applications Subcollection
+				// 🔹 Reference Applications Subcollection
 				const applicationsRef = collection(db, `Users/${userID}/Applications`);
 				const applicationsSnapshot = await getDocs(applicationsRef);
 
 				applicationsSnapshot.forEach((appDoc) => {
 					const appData = appDoc.data();
-
 					totalApps++;
 
-					// Company Age Calculation
-					if (appData.companyAge !== undefined) {
-						companyAgeSum += appData.companyAge;
+					// 🔹 Total Revenue Calculation (Ensure it's a valid number)
+					if (appData.revenueFor2024 && !isNaN(parseFloat(appData.revenueFor2024))) {
+						totalRevenueSum += parseFloat(appData.revenueFor2024);
+					}
+
+					// 🔹 Company Age Calculation (Years of Trading)
+					if (appData.yearsOfTrading && !isNaN(parseInt(appData.yearsOfTrading))) {
+						companyAgeSum += parseInt(appData.yearsOfTrading);
 						companyAgeCount++;
 					}
 
-					// Owner Age Calculation
-					if (appData.applicantAge !== undefined) {
-						ownerAgeSum += appData.applicantAge;
+					// 🔹 Owner Age Calculation
+					if (appData.applicantAge && !isNaN(parseInt(appData.applicantAge))) {
+						ownerAgeSum += parseInt(appData.applicantAge);
 						ownerAgeCount++;
 					}
-				// ✅ Revenue Calculation
-                if (appData.revenueFor2024 !== undefined) {
-                    totalRev += parseFloat(appData.revenueFor2024) || 0;
-                }
-            });
-        }
+				});
+			}
 
-        // ✅ Update Writable Stores
-        totalApplications.set(totalApps);
-        totalRevenue.set(totalRev);
-        averageCompanyAge.set(companyAgeCount ? parseFloat((companyAgeSum / companyAgeCount).toFixed(1)) : 0);
-        averageOwnerAge.set(ownerAgeCount ? parseFloat((ownerAgeSum / ownerAgeCount).toFixed(1)) : 0);
+			// ✅ Update Writable Stores
+			totalApplications.set(totalApps);
+			totalRevenue.set(totalRevenueSum);
+			averageCompanyAge.set(companyAgeCount ? parseFloat((companyAgeSum / companyAgeCount).toFixed(1)) : 0);
+			averageOwnerAge.set(ownerAgeCount ? parseFloat((ownerAgeSum / ownerAgeCount).toFixed(1)) : 0);
 
 		} catch (error) {
 			console.error("🔥 Error Fetching Applications:", error);
@@ -106,7 +106,7 @@
 					<CreditCard class="h-4 w-4 text-muted-foreground" />
 				</Card.Header>
 				<Card.Content>
-					<div class="text-2xl font-bold">{$averageCompanyAge}</div>
+					<div class="text-2xl font-bold">{$averageCompanyAge} Years</div>
 				</Card.Content>
 			</Card.Root>
 			<Card.Root>
@@ -115,7 +115,7 @@
 					<Activity class="h-4 w-4 text-muted-foreground" />
 				</Card.Header>
 				<Card.Content>
-					<div class="text-2xl font-bold">{$averageOwnerAge}</div>
+					<div class="text-2xl font-bold">{$averageOwnerAge} Years</div>
 				</Card.Content>
 			</Card.Root>
 		</div>
