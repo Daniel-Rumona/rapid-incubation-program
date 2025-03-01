@@ -104,5 +104,5 @@ export {
 	where, query, orderBy,
 	signOut, onAuthStateChanged,
 	ref, uploadBytes, getDownloadURL,
-	signInWithPopup, GoogleAuthProvider, logout
+	signInWithPopup, GoogleAuthProvider
 };
