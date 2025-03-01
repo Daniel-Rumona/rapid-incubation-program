@@ -26,11 +26,23 @@
 
 	const loggedInUser = writable<{ fullName: string; email: string } | null>(null);
 
-	let selectedFilter = "All"; // Default filter category
+	let selectedCategoryFilter = "All"; // Default category filter
+	let selectedStatusFilter = "All";   // Default status filter
 	let selectedTab = "all"; // Default status tab
-	let totalPrograms = writable(0);
 
 
+	// Modal state
+	let showModal = writable(false);
+	let modalContent = writable({ justification: "", score: 0 });
+
+	const openModal = (justification, score) => {
+		modalContent.set({ justification, score });
+		showModal.set(true);
+	};
+
+	const closeModal = () => {
+		showModal.set(false);
+	};
 	// Handle Logout
 	const handleLogout = async () => {
 		try {
@@ -79,14 +91,28 @@
 
 			let applications = querySnapshot.docs.map(doc => {
 				let appData = doc.data();
-				let submittedAt = appData.submittedAt?.toDate(); // Convert Firestore timestamp to Date object
 
-				if (submittedAt) {
-					const timeDiff = (now - submittedAt) / (1000 * 60 * 60); // Difference in hours
-					if (timeDiff <= 48) {
-						appData.status = "Under Review"; // Set status if within 48 hours
+				// ✅ Convert `submittedAt` properly
+				if (appData.submittedAt) {
+					if (typeof appData.submittedAt === "string") {
+						appData.submittedAt = new Date(appData.submittedAt); // ✅ Convert ISO string
+					} else if (appData.submittedAt.toDate) {
+						appData.submittedAt = appData.submittedAt.toDate(); // ✅ Convert Firestore Timestamp
+					} else {
+						console.warn("⚠️ submittedAt field is missing or invalid for:", appData);
+						appData.submittedAt = "N/A"; // ✅ Default to "N/A"
 					}
+				} else {
+					appData.submittedAt = "N/A"; // ✅ Default if missing
 				}
+
+				// ✅ Set Status Logic
+				const timeDiff = appData.submittedAt !== "N/A"
+					? (now.getTime() - appData.submittedAt.getTime()) / (1000 * 60 * 60)
+					: 9999;
+
+				appData.status = timeDiff <= 48 ? "Under Review" : appData.aiRecommendation || "Pending";
+
 				return appData;
 			});
 
@@ -101,7 +127,8 @@
 	// ✅ Fetch Programms & Cross-Reference Applications
 	async function fetchProgramms() {
 		try {
-			console.log("📌 Fetching programs...");
+			console.log("📌 [FETCH STARTED] Fetching programs from Firestore...");
+
 			const programsRef = collection(db, "Programs");
 			const querySnapshot = await getDocs(programsRef);
 			let fetchedProgramms = querySnapshot.docs.map(doc => ({
@@ -110,29 +137,43 @@
 				status: "Not Applied",
 			}));
 
-			// 🔹 Update total program count
-        		totalPrograms.set(querySnapshot.size);
+			console.log(`✅ [FETCH COMPLETE] Total Programs Fetched: ${fetchedProgramms.length}`);
 
 			const user = auth.currentUser;
 			if (user) {
+				console.log(`📌 [USER DETECTED] Fetching applications for: ${user.email}`);
+
 				const userId = await getUserIdByEmail(user.email);
 				if (userId) {
-					const userApplications = await fetchUserApplications(userId);
+					console.log(`✅ [USER ID FOUND] Firestore User ID: ${userId}`);
 
+					const userApplications = await fetchUserApplications(userId);
+					console.log(`📌 [USER APPLICATIONS] Found ${userApplications.length} applications`);
+
+					// ✅ Update Programs with Correct Status
 					fetchedProgramms = fetchedProgramms.map(program => {
 						const appliedProgramm = userApplications.find(app => app.programID === program.programID);
 						return {
 							...program,
-							status: appliedProgramm ? appliedProgramm.applicationStatus : "Not Applied",
+							status: appliedProgramm ? appliedProgramm.status : "Not Applied", // ✅ Now shows correct status
+							aiResponse: appliedProgramm ? appliedProgramm.aiJustification : null, // ✅ Store AI Response for modal
+							aiScore: appliedProgramm ? appliedProgramm.aiScore : null
 						};
 					});
+
+
+					console.log("✅ [PROGRAMS UPDATED] Programs with application statuses:", fetchedProgramms);
+				} else {
+					console.warn("⚠️ [NO USER ID] User ID not found. Skipping application check.");
 				}
+			} else {
+				console.warn("⚠️ [NO USER] No authenticated user detected. Showing all programs as 'Not Applied'.");
 			}
 
 			programs.set(fetchedProgramms);
 			filterProgramms();
 		} catch (error) {
-			console.error("🔥 Error fetching programs:", error);
+			console.error("🔥 [ERROR] Fetching programs failed:", error);
 		}
 	}
 
@@ -140,8 +181,8 @@
 	function filterProgramms() {
 		programs.subscribe(allProgramms => {
 			const filtered = allProgramms.filter(program =>
-				(selectedFilter === "All" || program.programCategory === selectedFilter) &&
-				(selectedTab === "all" || program.status === selectedTab)
+				(selectedCategoryFilter === "All" || program.programCategory === selectedCategoryFilter) &&
+				(selectedStatusFilter === "All" || program.status === selectedStatusFilter)
 			);
 			console.log("✅ Filtered programs:", filtered);
 			filteredProgramms.set(filtered);
@@ -149,16 +190,22 @@
 	}
 
 	// ✅ Run on Page Load
-	onMount(() => {
-		onAuthStateChanged(auth, async (user) => {
-			if (user?.email) {
-				loggedInUser.set({ fullName: user.displayName || "User", email: user.email });
-				await fetchProgramms();
+	onAuthStateChanged(auth, async (user) => {
+		if (user?.email) {
+			let fullName = user.displayName || "User"; // Default if displayName is missing
+			const usersRef = collection(db, "Users");
+			const q = query(usersRef, where("userEmail", "==", user.email));
+			const querySnapshot = await getDocs(q);
 
-			} else {
-				loggedInUser.set(null);
+			if (!querySnapshot.empty) {
+				fullName = querySnapshot.docs[0].data().userFullName || fullName; // ✅ Prefer Firestore name if available
 			}
-		});
+
+			loggedInUser.set({ fullName, email: user.email });
+			await fetchProgramms();
+		} else {
+			loggedInUser.set(null);
+		}
 	});
 </script>
 <div class="bg-muted/40 flex min-h-screen w-full flex-col">
@@ -245,23 +292,6 @@
 		<main class="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
 			<Tabs.Root bind:value={selectedTab}>
 				<div class="flex items-center">
-					<Tabs.List>
-						<Tabs.Trigger value="all" on:click={() => selectedTab.set("all")}>
-							All
-						</Tabs.Trigger>
-						<Tabs.Trigger value="Not Applied" on:click={() => selectedTab.set("Not Applied")}>
-							Not Applied
-						</Tabs.Trigger>
-						<Tabs.Trigger value="Under Review" on:click={() => selectedTab.set("Under Review")}>
-							Under Review
-						</Tabs.Trigger>
-						<Tabs.Trigger value="Accepted" on:click={() => selectedTab.set("Accepted")}>
-							Accepted
-						</Tabs.Trigger>
-						<Tabs.Trigger value="Rejected" on:click={() => selectedTab.set("Rejected")}>
-							Rejected
-						</Tabs.Trigger>
-					</Tabs.List>
 					<div class="ml-auto flex items-center gap-2">
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger asChild let:builder>
@@ -273,18 +303,44 @@
 								>
 									<ListFilter class="h-3.5 w-3.5" />
 									<span class="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    Filter
-                  </span>
+                Filter Programms By Status
+            </span>
+								</Button>
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content align="end">
+								<DropdownMenu.Label>Filter by Status</DropdownMenu.Label>
+								<DropdownMenu.Separator />
+								<DropdownMenu.CheckboxItem checked={selectedStatusFilter === "All"} on:click={() => { selectedStatusFilter = "All"; filterProgramms(); }}>All</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedStatusFilter === "Not Applied"} on:click={() => { selectedStatusFilter = "Not Applied"; filterProgramms(); }}>Not Applied</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedStatusFilter === "Under Review"} on:click={() => { selectedStatusFilter = "Under Review"; filterProgramms(); }}>Under Review</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedStatusFilter === "Rejected"} on:click={() => { selectedStatusFilter = "Rejected"; filterProgramms(); }}>Rejected</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedStatusFilter === "Accepted"} on:click={() => { selectedStatusFilter = "Accepted"; filterProgramms(); }}>Accepted</DropdownMenu.CheckboxItem>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger asChild let:builder>
+								<Button
+									builders={[builder]}
+									variant="outline"
+									size="sm"
+									class="h-8 gap-1"
+								>
+									<ListFilter class="h-3.5 w-3.5" />
+									<span class="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Filter by Category
+            </span>
 								</Button>
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content align="end">
 								<DropdownMenu.Label>Filter by Category</DropdownMenu.Label>
 								<DropdownMenu.Separator />
-								<DropdownMenu.CheckboxItem checked={selectedFilter === "All"} on:click={() => selectedFilter = "All"}>All</DropdownMenu.CheckboxItem>
-								<DropdownMenu.CheckboxItem checked={selectedFilter === "Ideation"} on:click={() => selectedFilter = "Ideation"}>Ideation</DropdownMenu.CheckboxItem>
-								<DropdownMenu.CheckboxItem checked={selectedFilter === "Incubation"} on:click={() => selectedFilter = "Incubation"}>Incubation</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedCategoryFilter === "All"} on:click={() => { selectedCategoryFilter = "All"; filterProgramms(); }}>All</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedCategoryFilter === "Ideation"} on:click={() => { selectedCategoryFilter = "Ideation"; filterProgramms(); }}>Ideation</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem checked={selectedCategoryFilter === "Incubation"} on:click={() => { selectedCategoryFilter = "Incubation"; filterProgramms(); }}>Incubation</DropdownMenu.CheckboxItem>
 							</DropdownMenu.Content>
 						</DropdownMenu.Root>
+
 					</div>
 				</div>
 				<Tabs.Content value={selectedTab}>
@@ -302,7 +358,6 @@
 										<Table.Head>Name</Table.Head>
 										<Table.Head>Category</Table.Head>
 										<Table.Head>Status</Table.Head>
-										<Table.Head>Created At</Table.Head>
 										<Table.Head>Action</Table.Head>
 									</Table.Row>
 								</Table.Header>
@@ -316,7 +371,6 @@
 													{program.status}
 												</Badge>
 											</Table.Cell>
-											<Table.Cell>{program.createdAt ? program.createdAt : "N/A"}</Table.Cell>
 											<Table.Cell>
 												{#if program.status === "Not Applied"}
 													<Button
@@ -325,23 +379,37 @@
 													>
 														Apply
 													</Button>
+												{:else if program.status !== "Under Review"}
+													<Button size="sm" variant="outline" on:click={() => openModal(program.aiResponse, program.aiScore)}>
+														Check Reply
+													</Button>
 												{:else}
-													<Button size="sm" variant="outline">Check Reply</Button>
+													<Button size="sm" variant="outline" disabled>
+														Check Reply
+													</Button>
 												{/if}
 											</Table.Cell>
+
 										</Table.Row>
 									{/each}
 								</Table.Body>
 							</Table.Root>
 						</Card.Content>
-						<Card.Footer>
-							<div class="text-muted-foreground text-xs">
-								Showing <strong>1-10</strong> of <strong>32</strong> Programms
-							</div>
-						</Card.Footer>
 					</Card.Root>
 				</Tabs.Content>
 			</Tabs.Root>
 		</main>
 	</div>
+	{#if $showModal}
+		<div class="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-50">
+			<div class="bg-white p-6 rounded-lg shadow-lg text-center w-1/3">
+				<h2 class="text-xl font-semibold mb-2">AI Evaluation</h2>
+				<p class="mb-4 text-gray-600"><strong>Justification:</strong> {$modalContent.justification}</p>
+				<p class="mb-4 text-gray-600"><strong>AI Score:</strong> {$modalContent.score}</p>
+				<Button on:click={closeModal} class="bg-red-500 text-white px-4 py-2 rounded">
+					Close
+				</Button>
+			</div>
+		</div>
+	{/if}
 </div>
