@@ -387,50 +387,6 @@
 		}
 	};
 
-	// ✅ Validate South African ID Number (13-digit with checksum)
-	function isValidSouthAfricanID(idNumber: string): boolean {
-		if (!/^\d{13}$/.test(idNumber)) return false; // ✅ Must be exactly 13 digits
-
-		// 🔹 Extract the birthdate (YYMMDD)
-		const birthYear = parseInt(idNumber.substring(0, 2), 10);
-		const birthMonth = parseInt(idNumber.substring(2, 4), 10);
-		const birthDay = parseInt(idNumber.substring(4, 6), 10);
-
-		// 🔹 Determine the full birth year correctly
-		const currentYear = new Date().getFullYear() % 100; // Get last 2 digits of the year
-		let fullYear = birthYear <= currentYear ? 2000 + birthYear : 1900 + birthYear; // ✅ Correctly infer 1900s or 2000s
-
-		// 🔹 Validate the extracted date
-		const birthDate = new Date(fullYear, birthMonth - 1, birthDay);
-		if (
-			birthDate.getFullYear() !== fullYear ||
-			birthDate.getMonth() + 1 !== birthMonth ||
-			birthDate.getDate() !== birthDay
-		) {
-			return false;
-		}
-
-		// 🔹 Validate with the **Luhn Algorithm** (Checksum)
-		const digits = idNumber.split("").map(Number);
-		let sum = 0;
-		let alternate = false;
-
-		for (let i = digits.length - 2; i >= 0; i--) { // ✅ Start at second-last digit
-			let num = digits[i];
-
-			if (alternate) {
-				num *= 2;
-				if (num > 9) num -= 9;
-			}
-
-			sum += num;
-			alternate = !alternate;
-		}
-
-		const checksum = (10 - (sum % 10)) % 10; // ✅ Get correct checksum digit
-
-		return checksum === digits[12]; // ✅ Last digit must match calculated checksum
-	}
 
 	// ✅ Auto-format Registration Number (YYYY/NNNNNN/06)
 	function formatRegistrationNumber(value: string): string {
@@ -755,12 +711,6 @@
 							id="applicant-id-number"
 							bind:value={$formData.applicantIDNumber}
 							placeholder="Enter Your ID Number"
-							on:blur={() => {
-								if (!isValidSouthAfricanID($formData.applicantIDNumber)) {
-									alert("❌ Invalid ID Number Format!");
-									formData.update(data => ({ ...data, applicantIDNumber: "" }));
-								}
-							}}
 							class="w-full"
 						/>
 						<Label for="gender">Select Gender</Label>
