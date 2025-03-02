@@ -103,17 +103,20 @@
 		const result = await signInWithPopup(auth, provider);
 		const user = result.user;
 
+		// ✅ Check if the Google user is an admin
+		const userRole = adminEmails.includes(user.email!) ? "admin" : "user";
+
 		// ✅ Store user using UID in Firestore
 		const userRef = doc(db, "Users", user.uid);
 		await setDoc(userRef, {
 			userEmail: user.email,
 			userFullName: user.displayName,
-			userRole: "user",
+			userRole: userRole, // ✅ Assign the correct role dynamically
 			createdAt: new Date(),
 		}, { merge: true });
 
-		console.log("✅ Google Signup Successful:", user.email);
-		goto("/track-application/tracker"); // Redirect to dashboard
+		// ✅ Redirect based on user role
+		goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
 
 	} catch (error) {
 		console.error("🔥 Google Signup Error:", error);
