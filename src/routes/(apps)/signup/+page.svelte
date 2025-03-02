@@ -4,6 +4,7 @@
 	import { Label } from "$lib/components/ui/label";
 	import { Input } from "$lib/components/ui/input";
 	import { db, auth, collection, addDoc, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "$lib/firebase";
+	import { doc, setDoc } from "firebase/firestore";
 	import { writable } from "svelte/store";
 	import { Eye, EyeOff } from "lucide-svelte/icons";
 	import { Icons } from "$lib/components/ui/icons";
@@ -70,16 +71,13 @@
 			const userRole = adminEmails.includes(email) ? "admin" : "user"; // Assign role based on email
 
 			// ✅ Save User Details in Firestore
-			const usersCollection = collection(db, "Users");
-			await addDoc(usersCollection, {
-				userEmail: email,
-				userFullName: `${firstName} ${lastName}`,
-				userRole: userRole,
-				createdAt: new Date(),
-			});
-
-			console.log("✅ User registered successfully:", user.email, "Role:", userRole);
-
+			const userRef = doc(db, "Users", user.uid); 
+			await setDoc(userRef, {
+					userEmail: user.email,
+					userFullName: `${firstName} ${lastName}`,
+					userRole: userRole,
+					createdAt: new Date(),
+					});
 			// ✅ Clear Form Fields After Signup
 			firstName = "";
 			lastName = "";
