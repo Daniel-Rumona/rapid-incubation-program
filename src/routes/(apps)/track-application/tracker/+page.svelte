@@ -34,6 +34,7 @@
 	const isLoading = writable(true); // Added loading state to avoid default view before Firestore response
 	// Store dashboard metrics
 	const totalApplications = writable(0);
+	const acceptedApplications = writable(0);
 	const rejectedApplications = writable(0);
 	const underReviewApplications = writable(0);
 
@@ -92,7 +93,8 @@
 			const applications = querySnapshot.docs.map((doc) => doc.data());
 
 			totalApplications.set(applications.length);
-			rejectedApplications.set(applications.filter(app => app.aiResponse === "Rejected").length);
+			acceptedApplications.set(applications.filter(app => app.applicationStatus === "Rejected").length);
+			rejectedApplications.set(applications.filter(app => app.applicationStatus === "Rejected").length);
 			underReviewApplications.set(applications.filter(app => app.status === "Under Review").length);
 
 			console.log(`✅ Total: ${applications.length}, Rejected: ${rejectedApplications}, Under Review: ${underReviewApplications}`);
@@ -250,6 +252,17 @@
 						<Card.Content>
 							<div class="text-2xl font-bold">{$totalApplications}</div>
 							<p class="text-xs text-muted-foreground">Total applications submitted</p>
+						</Card.Content>
+					</Card.Root>
+<!-- ✅ Accepted Applications -->
+<Card.Root>
+						<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
+							<Card.Title class="text-sm font-medium">Accepted Applications</Card.Title>
+							<CreditCard class="h-4 w-4 text-muted-foreground" />
+						</Card.Header>
+						<Card.Content>
+							<div class="text-2xl font-bold">{$acceptedApplications}</div>
+							<p class="text-xs text-muted-foreground">Total applications accepted</p>
 						</Card.Content>
 					</Card.Root>
 
