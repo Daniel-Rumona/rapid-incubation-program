@@ -162,7 +162,7 @@
 
 		// 🔹 Fetch user data from Firestore if logged in
 		if (user) {
-			const userId = await getUserIdByEmail(user.email);
+			const userId = await getUserID();
 			if (userId) {
 				await fetchApplicationData(userId);
 			}
@@ -324,27 +324,10 @@
 		return `${currentYear}/${newApplicationNumber}/${currentDay}`;
 	};
 
-	const getUserIdByEmail = async (email: string) => {
-		try {
-			const usersRef = collection(db, "Users"); // Reference Users collection
-			const q = query(usersRef);
-			const querySnapshot = await getDocs(q);
-
-			let userId = null;
-
-			querySnapshot.forEach((doc) => {
-				const userData = doc.data();
-				if (userData.userEmail === email) {
-					userId = doc.id; // Get Firestore document ID
-				}
-			});
-
-			return userId;
-		} catch (error) {
-			console.error("🔥 Error fetching user ID:", error);
-			return null;
-		}
-	};
+	const getUserID = () => {
+    const user = auth.currentUser;
+    return user ? user.uid : null; // ✅ Directly return Firebase Auth UID
+};
 
 	const submitToAI = async (applicationData) => {
 		try {
@@ -573,7 +556,8 @@
 				return;
 			}
 
-			const userId = await getUserIdByEmail(user.email);
+			const userId = user.uid; // ✅ Use Firebase Auth UID directly
+    			console.log("📌 Using UID for storage:", userId);
 			if (!userId) {
 				alert("❌ User ID not found in Firestore.");
 				showModal.set(false);
