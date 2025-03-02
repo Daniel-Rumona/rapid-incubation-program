@@ -98,28 +98,28 @@
 
 	// ✅ Handle Google Signup
 	const handleGoogleSignup = async () => {
-		const provider = new GoogleAuthProvider();
-		try {
-			const result = await signInWithPopup(auth, provider);
-			const user = result.user;
+	const provider = new GoogleAuthProvider();
+	try {
+		const result = await signInWithPopup(auth, provider);
+		const user = result.user;
 
-			// ✅ Save User in Firestore (if new)
-			const usersCollection = collection(db, "Users");
-			await addDoc(usersCollection, {
-				userEmail: user.email,
-				userFullName: user.displayName,
-				userRole: "user",
-				createdAt: new Date(),
-			});
+		// ✅ Store user using UID in Firestore
+		const userRef = doc(db, "Users", user.uid);
+		await setDoc(userRef, {
+			userEmail: user.email,
+			userFullName: user.displayName,
+			userRole: "user",
+			createdAt: new Date(),
+		}, { merge: true });
 
-			console.log("✅ Google Signup Successful:", user.email);
-			goto("/track-application/tracker"); // Redirect to dashboard
+		console.log("✅ Google Signup Successful:", user.email);
+		goto("/track-application/tracker"); // Redirect to dashboard
 
-		} catch (error) {
-			console.error("🔥 Google Signup Error:", error);
-			errorMessage.set("Google sign-up failed. Try again.");
-		}
-	};
+	} catch (error) {
+		console.error("🔥 Google Signup Error:", error);
+		errorMessage.set("Google sign-up failed. Try again.");
+	}
+};
 </script>
 
 <!-- ✅ Signup Page Layout -->
