@@ -151,10 +151,12 @@
 		const programID = urlParams.get("programID");
 		const programName = urlParams.get("programName");
 		const programCategory = urlParams.get("programCategory");
+		const lastFourMonths = getLastFourMonths();
 
 		// ✅ Update form data with program details from URL
 		formData.update(data => ({
 			...data,
+  			selectedMonths: lastFourMonths,
 			programID: programID || "",
 			programName: programName || "",
 			programCategory: programCategory || ""
@@ -291,6 +293,29 @@
 		}
 	};
 
+function getLastFourMonths(): string[] {
+    const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+    
+    const today = new Date();
+    let months = [];
+
+    for (let i = 1; i <= 4; i++) {
+        let monthIndex = today.getMonth() - i;
+        let year = today.getFullYear();
+
+        if (monthIndex < 0) {
+            monthIndex += 12;
+            year -= 1;
+        }
+
+        months.push(`${monthNames[monthIndex]} ${year}`);
+    }
+
+    return months.reverse(); // Ensure chronological order
+}
 
 
 	// Function to Generate Application ID
@@ -490,6 +515,7 @@
 			employeesFor2022: "Employees for 2022",
 			employeesFor2023: "Employees for 2023",
 			employeesFor2024: "Employees for 2024",
+			selectedMonths:[],
 			revenueForMonth1: "Revenue for Month 1",
 			revenueForMonth2: "Revenue for Month 2",
 			revenueForMonth3: "Revenue for Month 3",
@@ -991,33 +1017,22 @@
 							{/each}
 							<h3 class="text-lg font-medium">Enter your revenue and employees for the past four months</h3>
 							<!-- 🔹 Monthly Data -->
-							{#each [1, 2, 3, 4] as month}
-								<div class="grid grid-cols-3 gap-4">
-									<Select.Root
-										onSelectedChange={(v) => formData.update(data => ({ ...data, selectedMonth: v.value }))}
-									>
-										<Select.Trigger id="month">
-											<Select.Value placeholder="Select Month" />
-										</Select.Trigger>
-										<Select.Content>
-											{#each ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as monthOption}
-												<Select.Item value={monthOption}>{monthOption}</Select.Item>
-											{/each}
-										</Select.Content>
-									</Select.Root>
+							{#each $formData.selectedMonths as month, index}
+    <div class="grid grid-cols-3 gap-4">
+        <Label for="revenue-{index}">Month: {month}</Label>
+        <Input
+            id="revenue-{index}"
+            bind:value={$formData[`revenueForMonth${index + 1}`]}
+            placeholder="Revenue for {month}"
+        />
+        <Input
+            id="employees-{index}"
+            bind:value={$formData[`employeesForMonth${index + 1}`]}
+            placeholder="Employees for {month}"
+        />
+    </div>
+{/each}
 
-									<Input
-										id="revenue-{month}"
-										bind:value={$formData[`revenueForMonth${month}`]}
-										placeholder="Enter revenue for month {month}"
-									/>
-									<Input
-										id="employees-{month}"
-										bind:value={$formData[`employeesForMonth${month}`]}
-										placeholder="Enter employees for {month}"
-									/>
-								</div>
-							{/each}
 						</Card.Content>
 						<Label for="valid-tax-pin">Do You Have A Valid Tax Pin (Clearance)?</Label>
 
@@ -1188,7 +1203,15 @@
 							accept=".pdf,.doc,.docx,.jpg,.png"
 							on:change={handleFileSelection}
 						/>
-						<Label for="bank-statement-upload">Upload Business Bank Statement (last 3 months)
+<Label for="tax-clearance-upload">Upload Tax Clearance (last 3 months)
+						</Label>
+						<Input
+							id="tax-clearance-upload"
+							type="file"
+							accept=".pdf,.doc,.docx,.jpg,.png"
+							on:change={handleFileSelection}
+						/>
+						<Label for="bank-statement-upload">Upload Business Bank Statement (last 4 months)
 						</Label>
 						<Input
 							id="bank-statement-upload"
