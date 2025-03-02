@@ -567,7 +567,7 @@ function getLastFourMonths(): string[] {
 	const updateModalMessage = () => {
 		modalMessage.set(loadingMessages[messageIndex % loadingMessages.length]);
 		messageIndex++;
-		setTimeout(updateModalMessage, 2000); // Change message every 2 seconds
+		setTimeout(updateModalMessage, 10000); // Change message every 2 seconds
 	};
 
 	const submitForm = async () => {
@@ -1007,11 +1007,13 @@ function getLastFourMonths(): string[] {
 										id="revenue-{year}"
 										bind:value={$formData[`revenueFor${year}`]}
 										placeholder="Revenue {year}"
+type="number"
 									/>
 									<Input
 										id="employees-{year}"
 										bind:value={$formData[`employeesFor${year}`]}
 										placeholder="Employees {year}"
+type="number"
 									/>
 								</div>
 							{/each}
@@ -1023,12 +1025,14 @@ function getLastFourMonths(): string[] {
         <Input
             id="revenue-{index}"
             bind:value={$formData[`revenueForMonth${index + 1}`]}
-            placeholder="Revenue for {month}"
+            placeholder="Revenue"
+type="number"
         />
         <Input
             id="employees-{index}"
             bind:value={$formData[`employeesForMonth${index + 1}`]}
-            placeholder="Employees for {month}"
+            placeholder="Employees"
+type="number"
         />
     </div>
 {/each}
@@ -1203,7 +1207,7 @@ function getLastFourMonths(): string[] {
 							accept=".pdf,.doc,.docx,.jpg,.png"
 							on:change={handleFileSelection}
 						/>
-<Label for="tax-clearance-upload">Upload Tax Clearance (last 3 months)
+<Label for="tax-clearance-upload">Upload Tax Clearance
 						</Label>
 						<Input
 							id="tax-clearance-upload"
