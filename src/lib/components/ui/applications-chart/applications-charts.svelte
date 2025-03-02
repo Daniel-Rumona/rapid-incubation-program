@@ -117,16 +117,16 @@
 		let tooltip = d3.select("#tooltip");
 
 		svg.selectAll("rect")
-			.data(chartData)
-			.enter()
-			.append("rect")
-			.attr("x", (d) => xScale(d.date?.toDateString() || d.week || d.month))
-			.attr("y", (d) => yScale(d.value))
-			.attr("width", xScale.bandwidth() * 0.5) // Narrower bars for Monthly
-			.attr("height", (d) => height - margin - yScale(d.value))
-			.attr("rx", 8)
-			.attr("ry", 8)
-			.attr("fill", "#00BFFF")
+    .data(chartData)
+    .enter()
+    .append("rect")
+    .attr("x", d => xScale(d.date?.toDateString() || d.week || d.month))
+    .attr("y", d => yScale(d.value))
+    .attr("width", xScale.bandwidth() * 0.5) // Keep narrower bars for Monthly
+    .attr("height", d => Math.max(5, height - margin - yScale(d.value))) // ✅ Set a minimum height of 5px
+    .attr("rx", 8)
+    .attr("ry", 8)
+    .attr("fill", "#00BFFF")
 			.on("mouseover", (event, d) => {
 				tooltip
 					.style("display", "block")
