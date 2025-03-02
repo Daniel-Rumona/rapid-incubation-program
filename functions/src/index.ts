@@ -40,7 +40,7 @@ export const sendApplicationEmail = functions.https.onCall(
 				html: `
           <p>Dear ${data.applicantName},</p>
           <p>Thank you for your interest in our incubation programme.</p>
-          <p>Your application will be carefully reviewed. Check your status <a href="https://your-system-link.com">here</a>.</p>
+          <p>Your application will be carefully reviewed. Check your status <a href="https://rapid-incubation-program.vercel.app/">here</a>.</p>
           <p>Best Regards,<br><strong>DUT-CSERI</strong></p>
         `,
 			};
