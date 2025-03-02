@@ -55,13 +55,16 @@
 		let monday = new Date(today);
 		monday.setDate(today.getDate() - today.getDay() + 1 + periodIndex * 7);
 		let dailyData = Array.from({ length: 5 }, (_, i) => {
-			let date = new Date(monday);
-			date.setDate(monday.getDate() + i);
-			return {
-				date,
-				value: apps.filter((app) => app.submittedAt.toDateString() === date.toDateString()).length,
-			};
-		});
+	let date = new Date(monday);
+	date.setDate(monday.getDate() + i);
+	let formattedDate = date.toISOString().split("T")[0];
+
+	return {
+		date,
+		value: apps.filter((app) => app.submittedAt.toISOString().split("T")[0] === formattedDate).length,
+	};
+});
+
 
 		// ✅ Weekly View (Always show Week 1 - 4, move month)
 		let newMonth = new Date(today.setMonth(today.getMonth() + periodIndex)).toLocaleString("default", { month: "short" });
