@@ -36,24 +36,26 @@
 	const totalApplications = writable(0);
 	const rejectedApplications = writable(0);
 	const underReviewApplications = writable(0);
-	async function fetchUserData(email: string) {
-		try {
-			const usersRef = collection(db, "Users");
-			const q = query(usersRef, where("userEmail", "==", email));
-			const querySnapshot = await getDocs(q);
 
-			if (!querySnapshot.empty) {
-				const userData = querySnapshot.docs[0].data();
-				loggedInUser.set({ fullName: userData.userFullName, email: userData.userEmail });
+	async function fetchUserData() {
+	const user = auth.currentUser;
+	if (!user) return;
 
-			} else {
-				console.warn("⚠️ No user found in Firestore.");
-				loggedInUser.set(null);
-			}
-		} catch (error) {
-			console.error("🔥 Error fetching Firestore user data:", error);
+	try {
+		const userRef = doc(db, "Users", user.uid); // ✅ Use UID
+		const userSnap = await getDoc(userRef);
+
+		if (userSnap.exists()) {
+			const userData = userSnap.data();
+			loggedInUser.set({ fullName: userData.userFullName, email: userData.userEmail });
+		} else {
+			console.warn("⚠️ No user found in Firestore.");
+			loggedInUser.set(null);
 		}
+	} catch (error) {
+		console.error("🔥 Error fetching Firestore user data:", error);
 	}
+}
 
 	async function getUserIdByEmail(email: string) {
 		try {
@@ -71,52 +73,56 @@
 		}
 	}
 
-	async function fetchUserApplications(email: string) {
-		try {
-			console.log("📌 Checking applications for:", email);
-			const userId = await getUserIdByEmail(email);
-			if (!userId) {
-				hasApplications.set(false); // Ensure dashboard doesn't show
-				isLoading.set(false); // Stop loading after check
-				return;
-			}
-
-			const applicationsRef = collection(db, `Users/${userId}/Applications`);
-			const querySnapshot = await getDocs(applicationsRef);
-
-			if (!querySnapshot.empty) {
-				const applications = querySnapshot.docs.map((doc) => doc.data());
-
-				totalApplications.set(applications.length);
-				rejectedApplications.set(applications.filter(app => app.aiResponse === "Rejected").length);
-				underReviewApplications.set(applications.filter(app => app.status === "Under Review").length);
-
-				console.log(`✅ Total: ${applications.length}, Rejected: ${rejectedApplications}, Under Review: ${underReviewApplications}`);
-				hasApplications.set(true);
-			} else {
-				console.warn("⚠️ No applications found.");
-				hasApplications.set(false); // **Ensuring dashboard doesn't show**
-			}
-		} catch (error) {
-			console.error("🔥 Error fetching applications:", error);
-			hasApplications.set(false); // **Ensure dashboard does not appear in case of error**
-		} finally {
-			isLoading.set(false); //
+	async function fetchUserApplications() {
+	try {
+		const user = auth.currentUser;
+		if (!user) {
+			hasApplications.set(false);
+			isLoading.set(false);
+			return;
 		}
+
+		const userId = user.uid; // ✅ Directly use UID
+		console.log("📌 Using UID for Firestore queries:", userId);
+
+		const applicationsRef = collection(db, `Users/${userId}/Applications`);
+		const querySnapshot = await getDocs(applicationsRef);
+
+		if (!querySnapshot.empty) {
+			const applications = querySnapshot.docs.map((doc) => doc.data());
+
+			totalApplications.set(applications.length);
+			rejectedApplications.set(applications.filter(app => app.aiResponse === "Rejected").length);
+			underReviewApplications.set(applications.filter(app => app.status === "Under Review").length);
+
+			console.log(`✅ Total: ${applications.length}, Rejected: ${rejectedApplications}, Under Review: ${underReviewApplications}`);
+			hasApplications.set(true);
+		} else {
+			console.warn("⚠️ No applications found.");
+			hasApplications.set(false);
+		}
+	} catch (error) {
+		console.error("🔥 Error fetching applications:", error);
+		hasApplications.set(false);
+	} finally {
+		isLoading.set(false);
 	}
+}
+
 
 	onMount(() => {
 		onAuthStateChanged(auth, async (user) => {
-			if (user?.email) {
-				loggedInUser.set({ fullName: user.displayName || "User", email: user.email });
-				await fetchUserData(user.email);
-				await fetchUserApplications(user.email);
-			} else {
-				loggedInUser.set(null);
-				hasApplications.set(null);
-				isLoading.set(false); // Stop loading if user is not authenticated
-			}
-		});
+	if (user) {
+		loggedInUser.set({ fullName: user.displayName || "User", email: user.email });
+		await fetchUserData();
+		await fetchUserApplications(); 
+	} else {
+		loggedInUser.set(null);
+		hasApplications.set(null);
+		isLoading.set(false);
+	}
+});
+
 	});
 
 	function redirectToPrograms() {
