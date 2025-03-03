@@ -334,8 +334,8 @@
 											<Table.Head>Applicant</Table.Head>
 											<Table.Head class="hidden sm:table-cell">Sector</Table.Head>
 											<Table.Head class="hidden sm:table-cell">Status</Table.Head>
-											<Table.Head class="hidden md:table-cell">Date</Table.Head>
-											<Table.Head class="text-right">Program</Table.Head>
+											<Table.Head class="hidden md:table-cell">Program</Table.Head>
+											<Table.Head class="text-right">Action</Table.Head>
 										</Table.Row>
 									</Table.Header>
 									<Table.Body>
