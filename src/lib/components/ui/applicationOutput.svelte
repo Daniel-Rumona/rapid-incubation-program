@@ -131,11 +131,19 @@
 	}
 
 	function handleDialogChange(open) {
-		isOpen = open;
-		if (!open) {
-			document.body.style.overflow = ""; // Restore scrollbar when closing
-		}
-	}
+    isOpen = open;
+
+    if (open) {
+        console.log("📌 Modal Opened");
+        console.log("   - Application ID:", application?.applicationID || "No ID Found");
+        console.log("   - AI Recommendation:", application?.aiRecommendation || "No Recommendation");
+        console.log("   - AI Justification:", application?.aiJustification || "No Justification");
+    }
+
+    if (!open) {
+        document.body.style.overflow = ""; // Restore scrollbar when closing
+    }
+}
 
 </script>
 
