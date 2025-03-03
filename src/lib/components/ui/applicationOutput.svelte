@@ -135,11 +135,21 @@
 	}
 
 	function handleDialogChange(open) {
-		isOpen = open;
-		if (!open) {
-			document.body.style.overflow = ""; // Restore scrollbar when closing
-		}
-	}
+    isOpen = open;
+
+    if (open) {
+        console.log("📌 Modal Opened");
+        console.log("🔹 Selected Application:", application);
+        console.log("🔹 Application ID:", application?.applicationID || "No ID Found");
+        
+        fetchUserEmail(application?.applicationID); // Fetch and log user email
+    }
+
+    if (!open) {
+        document.body.style.overflow = ""; // Restore scrollbar when closing
+    }
+}
+
 </script>
 
 <Dialog open={isOpen} modal={false} on:openChange={handleDialogChange} on:close={() => isOpen = false}>
