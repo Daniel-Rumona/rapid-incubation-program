@@ -7,8 +7,8 @@ export let isDashboard = false;
 
 let width, height;
 $: {
-	width = isDashboard ? 250 : 400;
-	height = isDashboard ? 250 : 400;
+	width = isDashboard ? 250 : 400
+	height = isDashboard ? 250 : 400
 }
 
 let svg;
