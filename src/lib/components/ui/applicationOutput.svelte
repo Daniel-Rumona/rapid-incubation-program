@@ -142,22 +142,30 @@ function handleDialogChange(open) {
 		<!-- ✅ Make the content scrollable -->
 		<div class="scrollable-content">
 			{#if application}
-				<div class="space-y-2">
-					<p><strong>Application ID:</strong> {application.applicationID}</p>
-					<p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
-					<p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
-					<p><strong>Justification:</strong> {application.aiJustification}</p>
-					<p><strong>Current Status:</strong>
-						{#if application.applicationStatus}
-							<span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
-						{:else}
-							<span class="px-2 py-1 rounded bg-yellow-200">Awaiting Confirmation</span>
-						{/if}
-					</p>
-				</div>
+	<div class="space-y-2">
+		<p><strong>Application ID:</strong> {application.applicationID}</p>
+		<p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
+		<p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
+
+		<!-- ✅ Show AI Justification Summary -->
+		{#if application.aiJustification?.summary}
+			<p><strong>Justification:</strong> {application.aiJustification.summary}</p>
+		{:else}
+			<p class="text-gray-500">No justification available.</p>
+		{/if}
+		<!-- ✅ Show Application Status -->
+		<p><strong>Current Status:</strong>
+			{#if application.applicationStatus}
+				<span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
 			{:else}
-				<p class="text-red-500">No evaluation found for this application.</p>
+				<span class="px-2 py-1 rounded bg-yellow-200">Awaiting Confirmation</span>
 			{/if}
+		</p>
+	</div>
+{:else}
+	<p class="text-red-500">No evaluation found for this application.</p>
+{/if}
+
 		</div>
 
 		<!-- ✅ Action Buttons -->
