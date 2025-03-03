@@ -11,100 +11,106 @@
 	// ✅ State for updating UI
 	const isLoading = writable(false);
 
-	// ✅ Function to confirm the AI recommendation
-	async function confirmApplication() {
-		if (!application) return;
+	// ✅ Function to confirm or add application status
+async function confirmApplication() {
+    if (!application) return;
 
-		isLoading.set(true);
-		try {
-			console.log("📌 Confirming Application:", application.applicationID);
+    isLoading.set(true);
+    try {
+        console.log("📌 Confirming Application:", application.applicationID);
 
-			// ✅ Fetch the correct Firestore document reference
-			const usersRef = collection(db, "Users");
-			const usersSnapshot = await getDocs(usersRef);
+        // ✅ Fetch the correct Firestore document reference
+        const usersRef = collection(db, "Users");
+        const usersSnapshot = await getDocs(usersRef);
 
-			let appDocRef = null;
+        let appDocRef = null;
 
-			for (const userDoc of usersSnapshot.docs) {
-				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-				const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
-				const querySnapshot = await getDocs(q);
+        for (const userDoc of usersSnapshot.docs) {
+            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+            const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
+            const querySnapshot = await getDocs(q);
 
-				if (!querySnapshot.empty) {
-					const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
-					appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
-					console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
-					break;
-				}
-			}
+            if (!querySnapshot.empty) {
+                const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
+                appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
+                console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
+                break;
+            }
+        }
 
-			if (!appDocRef) {
-				console.warn("⚠️ No document found for this application ID.");
-				isLoading.set(false);
-				return;
-			}
+        if (!appDocRef) {
+            console.warn("⚠️ No document found for this application ID.");
+            isLoading.set(false);
+            return;
+        }
 
-			// ✅ Update Firestore with the AI recommendation
-			await updateDoc(appDocRef, { applicationStatus: application.aiRecommendation });
-			console.log("✅ applicationStatus set to AI Recommendation:", application.aiRecommendation);
+        // ✅ If applicationStatus is missing, set it first
+        const updatedStatus = application.applicationStatus || application.aiRecommendation || "Under Review";
+        await updateDoc(appDocRef, { applicationStatus: updatedStatus });
+        console.log("✅ applicationStatus set to:", updatedStatus);
 
-			// ✅ Update local state
-			application.applicationStatus = application.aiRecommendation;
-		} catch (error) {
-			console.error("🔥 Error confirming application:", error);
-		} finally {
-			isLoading.set(false);
-		}
-	}
+        // ✅ Update local state
+        application.applicationStatus = updatedStatus;
+    } catch (error) {
+        console.error("🔥 Error confirming application:", error);
+    } finally {
+        isLoading.set(false);
+    }
+}
 
-	// ✅ Function to alter the decision
-	async function alterApplicationStatus() {
-		if (!application || !application.applicationStatus) return;
+// ✅ Function to alter application decision
+async function alterApplicationStatus() {
+    if (!application) return;
 
-		isLoading.set(true);
-		try {
-			console.log("📌 Altering Application Status for:", application.applicationID);
+    isLoading.set(true);
+    try {
+        console.log("📌 Altering Application Status for:", application.applicationID);
 
-			// ✅ Determine the new status
-			const newStatus = application.applicationStatus === "Accepted" ? "Rejected" : "Accepted";
+        // ✅ Determine the new status
+        const newStatus = application.applicationStatus === "Accepted" ? "Rejected" : "Accepted";
 
-			// ✅ Fetch the correct Firestore document reference
-			const usersRef = collection(db, "Users");
-			const usersSnapshot = await getDocs(usersRef);
+        // ✅ Fetch the correct Firestore document reference
+        const usersRef = collection(db, "Users");
+        const usersSnapshot = await getDocs(usersRef);
 
-			let appDocRef = null;
+        let appDocRef = null;
 
-			for (const userDoc of usersSnapshot.docs) {
-				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-				const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
-				const querySnapshot = await getDocs(q);
+        for (const userDoc of usersSnapshot.docs) {
+            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+            const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
+            const querySnapshot = await getDocs(q);
 
-				if (!querySnapshot.empty) {
-					const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
-					appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
-					console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
-					break;
-				}
-			}
+            if (!querySnapshot.empty) {
+                const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
+                appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
+                console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
+                break;
+            }
+        }
 
-			if (!appDocRef) {
-				console.warn("⚠️ No document found for this application ID.");
-				isLoading.set(false);
-				return;
-			}
+        if (!appDocRef) {
+            console.warn("⚠️ No document found for this application ID.");
+            isLoading.set(false);
+            return;
+        }
 
-			// ✅ Update Firestore with the toggled status
-			await updateDoc(appDocRef, { applicationStatus: newStatus });
-			console.log(`✅ applicationStatus changed to: ${newStatus}`);
+        // ✅ Ensure applicationStatus exists before toggling
+        if (!application.applicationStatus) {
+            await updateDoc(appDocRef, { applicationStatus: "Under Review" });
+            application.applicationStatus = "Under Review";
+            console.log("✅ applicationStatus initialized to: Under Review");
+        } else {
+            await updateDoc(appDocRef, { applicationStatus: newStatus });
+            application.applicationStatus = newStatus;
+            console.log(`✅ applicationStatus changed to: ${newStatus}`);
+        }
+    } catch (error) {
+        console.error("🔥 Error altering application status:", error);
+    } finally {
+        isLoading.set(false);
+    }
+}
 
-			// ✅ Update local state
-			application.applicationStatus = newStatus;
-		} catch (error) {
-			console.error("🔥 Error altering application status:", error);
-		} finally {
-			isLoading.set(false);
-		}
-	}
 	function handleDialogChange(open) {
 		isOpen = open;
 		if (!open) {
