@@ -53,9 +53,60 @@
 		} catch (error) {
 			console.error("🔥 Error confirming application:", error);
 		} finally {
-			isLoading.set(false);
-		}
-	}
+			isLoading.set(// ✅ Function to alter the decision
+async function alterApplicationStatus() {
+    if (!application) {
+        console.error("⚠️ No application selected.");
+        return;
+    }
+
+    isLoading.set(true);
+    try {
+        console.log("📌 Attempting to alter application for:", application.applicationID);
+
+        // ✅ Fetch the correct Firestore document reference
+        const usersRef = collection(db, "Users");
+        const usersSnapshot = await getDocs(usersRef);
+
+        let appDocRef = null;
+
+        for (const userDoc of usersSnapshot.docs) {
+            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+            const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
+                appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
+                console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
+                break;
+            }
+        }
+
+        if (!appDocRef) {
+            console.warn("⚠️ No document found for this application ID.");
+            isLoading.set(false);
+            return;
+        }
+
+        // ✅ Toggle between Accepted & Rejected while handling multiple variations
+        let currentStatus = application.applicationStatus;
+        let newStatus = ["Accepted", "Accept"].includes(currentStatus) ? "Rejected" : "Accepted";
+
+        console.log(`🔄 Changing application status from ${currentStatus} to ${newStatus}`);
+
+        // ✅ Update Firestore with the new status
+        await updateDoc(appDocRef, { applicationStatus: newStatus });
+        console.log(`✅ applicationStatus changed to: ${newStatus}`);
+
+        // ✅ Update local state
+        application.applicationStatus = newStatus;
+    } catch (error) {
+        console.error("🔥 Error altering application decision:", error);
+    } finally {
+        isLoading.set(false);
+    }
+}
 
 	// ✅ Function to alter the decision
   
@@ -77,8 +128,8 @@
 		{#if application}
 			<div class="space-y-2">
 				<p><strong>Application ID:</strong> {application.applicationID}</p>
-				<p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
-				<p><strong>Quant-AI Score:</strong> {application.aiScore}</<p><strong>Justification:</strong> 
+				<p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p><p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
+<p><strong>Justification:</strong> 
     {#if typeof application.aiJustification === "string"}
         {application.aiJustification}
     {:else if application.aiJustification?.summary}
@@ -86,7 +137,7 @@
     {:else}
         <span class="text-gray-500">No justification available.</span>
     {/if}
-</p>
+</p>	
 				<p><strong>Current Status:</strong>
 					{#if application.applicationStatus}
 						<span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
