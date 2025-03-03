@@ -111,7 +111,7 @@
 					? (now.getTime() - appData.submittedAt.getTime()) / (1000 * 60 * 60)
 					: 9999;
 
-				appData.status = timeDiff <= 48 ? "Under Review" : appData.aiRecommendation || "Pending";
+				appData.status = timeDiff <= 48 ? "Under Review" : appData.applicationStatus;
 
 				return appData;
 			});
