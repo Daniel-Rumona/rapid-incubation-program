@@ -112,7 +112,7 @@
 				: "Accepted";
 
 			// ✅ Update Firestore document
-			await updateDoc(appDocRef, { aiRecommendation: newAIRecommendation });
+			await updateDoc(appDocRef, { applicationStatus: newAIRecommendation });
 
 			// ✅ Update the application locally
 			application.applicationStatus = newAIRecommendation;
