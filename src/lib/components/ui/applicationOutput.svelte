@@ -12,135 +12,127 @@
 	const isLoading = writable(false);
 
 	// ✅ Function to confirm or add application status
-async function confirmApplication() {
-    if (!application) return;
+	async function confirmApplication() {
+		if (!application) return;
 
-    isLoading.set(true);
-    try {
-        console.log("📌 Confirming Application:", application.applicationID);
+		isLoading.set(true);
+		try {
+			console.log("📌 Confirming Application:", application.applicationID);
 
-        // ✅ Fetch the correct Firestore document reference
-        const usersRef = collection(db, "Users");
-        const usersSnapshot = await getDocs(usersRef);
+			// ✅ Optimized query: Get the specific user's application directly
+			const usersRef = collection(db, "Users");
+			const usersSnapshot = await getDocs(usersRef);
 
-        let appDocRef = null;
+			let appDocRef = null;
 
-        for (const userDoc of usersSnapshot.docs) {
-            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-            const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
-            const querySnapshot = await getDocs(q);
+			for (const userDoc of usersSnapshot.docs) {
+				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+				const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
+				const querySnapshot = await getDocs(q);
 
-            if (!querySnapshot.empty) {
-                const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
-                appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
-                console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
-                break;
-            }
-        }
+				if (!querySnapshot.empty) {
+					const appDoc = querySnapshot.docs[0]; // ✅ Get first matching document
+					appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
+					console.log(`✅ Found application in user ${userDoc.id}'s collection.`);
+					break;
+				}
+			}
 
-        if (!appDocRef) {
-            console.warn("⚠️ No document found for this application ID.");
-            isLoading.set(false);
-            return;
-        }
+			if (!appDocRef) {
+				console.warn("⚠️ No document found for this application ID.");
+				isLoading.set(false);
+				return;
+			}
 
-        // ✅ If applicationStatus is missing, set it first
-        const updatedStatus = application.applicationStatus || application.aiRecommendation || "Under Review";
-        await updateDoc(appDocRef, { applicationStatus: updatedStatus });
-        console.log("✅ applicationStatus set to:", updatedStatus);
+			// ✅ Ensure `applicationStatus` is set
+			const updatedStatus = application.applicationStatus || application.aiRecommendation || "Under Review";
+			await updateDoc(appDocRef, { applicationStatus: updatedStatus });
 
-        // ✅ Update local state
-        application.applicationStatus = updatedStatus;
-    } catch (error) {
-        console.error("🔥 Error confirming application:", error);
-    } finally {
-        isLoading.set(false);
-    }
-}
+			console.log("✅ applicationStatus set to:", updatedStatus);
 
-// ✅ Function to alter application decisionconsole.warn("⚠️ No document found for this application ID.");
-async function alterApplicationStatus() {
-    if (!selectedApplication) {
-        console.error("⚠️ No application selected.");
-        return;
-    }
+			// ✅ Update local state
+			application.applicationStatus = updatedStatus;
+		} catch (error) {
+			console.error("🔥 Error confirming application:", error);
+		} finally {
+			isLoading.set(false);
+		}
+	}
 
-    isLoading.set(true);
+	// ✅ Function to alter application decision
+	async function alterApplicationStatus() {
+		if (!application) {
+			console.error("⚠️ No application selected.");
+			return;
+		}
 
-    try {
-        console.log("📌 Attempting to alter application for:");
-        console.log("   - Application ID:", selectedApplication.applicationID);
+		isLoading.set(true);
 
-        const usersRef = collection(db, "Users");
-        const usersSnapshot = await getDocs(usersRef);
+		try {
+			console.log("📌 Attempting to alter application for:", application.applicationID);
 
-        let appDocRef = null;
-        let alteredUserEmail = null; // Track the user whose application is being altered
-        let currentAIRecommendation = selectedApplication.aiRecommendation;
+			const usersRef = collection(db, "Users");
+			const usersSnapshot = await getDocs(usersRef);
 
-        for (const userDoc of usersSnapshot.docs) {
-            const userData = userDoc.data();
-            console.log(`🔍 Checking User: ${userDoc.id}, Email: ${userData?.userEmail || "No Email Found"}`);
+			let appDocRef = null;
+			let alteredUserEmail = null; // Track the user whose application is being altered
 
-            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-            const q = query(applicationsRef, where("applicationID", "==", selectedApplication.applicationID));
-            const querySnapshot = await getDocs(q);
+			for (const userDoc of usersSnapshot.docs) {
+				const userData = userDoc.data();
+				console.log(`🔍 Checking User: ${userDoc.id}, Email: ${userData?.userEmail || "No Email Found"}`);
 
-            if (!querySnapshot.empty) {
-                const appDoc = querySnapshot.docs[0]; // ✅ Get the first matching document
-                appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
-                alteredUserEmail = userData?.userEmail || "Unknown Email";
+				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+				const q = query(applicationsRef, where("applicationID", "==", application.applicationID));
+				const querySnapshot = await getDocs(q);
 
-                console.log(`✅ Found Application in User ${userDoc.id}'s Collection`);
-                console.log(`   - Altering Application Document ID: ${appDoc.id}`);
-                console.log(`   - User Email: ${alteredUserEmail}`);
-                console.log(`   - Current AI Recommendation: ${currentAIRecommendation}`);
+				if (!querySnapshot.empty) {
+					const appDoc = querySnapshot.docs[0]; // ✅ Get the first matching document
+					appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
+					alteredUserEmail = userData?.userEmail || "Unknown Email";
 
-                break;
-            }
-        }
+					console.log(`✅ Found Application in User ${userDoc.id}'s Collection`);
+					console.log(`   - Altering Application Document ID: ${appDoc.id}`);
+					console.log(`   - User Email: ${alteredUserEmail}`);
+					break;
+				}
+			}
 
-        if (!appDocRef) {
-            console.warn("⚠️ No matching application found in any user collection.");
-            isLoading.set(false);
-            return;
-        }
+			if (!appDocRef) {
+				console.warn("⚠️ No matching application found in any user collection.");
+				isLoading.set(false);
+				return;
+			}
 
-        // ✅ Ensure the AI recommendation is one of the valid ones
-        const validAIRecommendations = ["Accepted", "Rejected", "Accept", "Reject"];
-        if (!validAIRecommendations.includes(currentAIRecommendation)) {
-            console.warn("⚠️ Invalid AI recommendation. Must be 'Accepted', 'Rejected', 'Accept', or 'Reject'.");
-            isLoading.set(false);
-            return;
-        }
+			// ✅ Ensure the AI recommendation is one of the valid ones
+			const validAIRecommendations = ["Accepted", "Rejected", "Accept", "Reject"];
+			let currentAIRecommendation = application.aiRecommendation;
 
-        // ✅ Toggle the AI recommendation
-        let newAIRecommendation;
-        if (currentAIRecommendation === "Accepted" || currentAIRecommendation === "Accept") {
-            newAIRecommendation = "Rejected";
-        } else if (currentAIRecommendation === "Rejected" || currentAIRecommendation === "Reject") {
-            newAIRecommendation = "Accepted";
-        } else {
-            console.warn("⚠️ Unexpected AI recommendation encountered.");
-            isLoading.set(false);
-            return;
-        }
+			if (!validAIRecommendations.includes(currentAIRecommendation)) {
+				console.warn("⚠️ Invalid AI recommendation. Must be 'Accepted', 'Rejected', 'Accept', or 'Reject'.");
+				isLoading.set(false);
+				return;
+			}
 
-        // ✅ Update Firestore document
-        await updateDoc(appDocRef, { aiRecommendation: newAIRecommendation });
+			// ✅ Toggle the AI recommendation
+			let newAIRecommendation = currentAIRecommendation === "Accepted" || currentAIRecommendation === "Accept"
+				? "Rejected"
+				: "Accepted";
 
-        console.log(`✅ Successfully Updated AI Recommendation: ${newAIRecommendation}`);
-        console.log(`   - Application ID: ${selectedApplication.applicationID}`);
-        console.log(`   - User Email: ${alteredUserEmail}`);
+			// ✅ Update Firestore document
+			await updateDoc(appDocRef, { aiRecommendation: newAIRecommendation });
 
-        // ✅ Update the selected application locally
-        selectedApplication.update(app => ({ ...app, aiRecommendation: newAIRecommendation }));
-    } catch (error) {
-        console.error("🔥 Error updating AI recommendation:", error);
-    } finally {
-        isLoading.set(false);
-    }
-}
+			console.log(`✅ Successfully Updated AI Recommendation: ${newAIRecommendation}`);
+			console.log(`   - Application ID: ${application.applicationID}`);
+			console.log(`   - User Email: ${alteredUserEmail}`);
+
+			// ✅ Update the application locally
+			application.aiRecommendation = newAIRecommendation;
+		} catch (error) {
+			console.error("🔥 Error updating AI recommendation:", error);
+		} finally {
+			isLoading.set(false);
+		}
+	}
 
 	function handleDialogChange(open) {
 		isOpen = open;
