@@ -123,52 +123,98 @@
 </script>
 
 <Dialog open={isOpen} modal={false} on:openChange={handleDialogChange} on:close={() => isOpen = false}>
-    <DialogContent>
-        <DialogHeader>
+    <DialogContent class="scrollable-container">
+        <DialogHeader class="sticky-header">
             <DialogTitle>Application Evaluation</DialogTitle>
             <DialogDescription>Here is the AI-generated recommendation.</DialogDescription>
         </DialogHeader>
 
-        {#if application}
-            <div class="space-y-2">
-                <p><strong>Application ID:</strong> {application.applicationID}</p>
-                <p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
-                <p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
-                <p><strong>Justification:</strong> 
-                    {#if typeof application.aiJustification === "string"}
-                        {application.aiJustification}
-                    {:else if application.aiJustification?.summary}
-                        {application.aiJustification.summary}
-                    {:else}
-                        <span class="text-gray-500">No justification available.</span>
-                    {/if}
-                </p>    
-                <p><strong>Current Status:</strong>
-                    {#if application.applicationStatus}
-                        <span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
-                    {:else}
-                        <span class="px-2 py-1 rounded bg-yellow-200">Awaiting Confirmation</span>
-                    {/if}
-                </p>
-            </div>
+        <div class="scrollable-content">
+            {#if application}
+                <div class="space-y-2">
+                    <p><strong>Application ID:</strong> {application.applicationID}</p>
+                    <p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
+                    <p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
+                    <p><strong>Justification:</strong> 
+                        {#if typeof application.aiJustification === "string"}
+                            {application.aiJustification}
+                        {:else if application.aiJustification?.summary}
+                            {application.aiJustification.summary}
+                        {:else}
+                            <span class="text-gray-500">No justification available.</span>
+                        {/if}
+                    </p>    
+                    <p><strong>Current Status:</strong>
+                        {#if application.applicationStatus}
+                            <span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
+                        {:else}
+                            <span class="px-2 py-1 rounded bg-yellow-200">Awaiting Confirmation</span>
+                        {/if}
+                    </p>
+                </div>
+            {:else}
+                <p class="text-red-500">No evaluation found for this application.</p>
+            {/if}
+        </div>
 
-            <div class="mt-4 flex gap-3">
-                <!-- ✅ Show Confirm button if status is missing -->
-                {#if !application.applicationStatus}
-                    <Button on:click={confirmApplication} class="bg-blue-600 text-white">
-                        {#if $isLoading} Processing... {:else} Confirm Recommendation {/if}
-                    </Button>
-                {/if}
+        <div class="mt-4 flex gap-3">
+            {#if !application.applicationStatus}
+                <Button on:click={confirmApplication} class="bg-blue-600 text-white">
+                    {#if $isLoading} Processing... {:else} Confirm Recommendation {/if}
+                </Button>
+            {/if}
 
-                <!-- ✅ Show Alter button if status exists -->
-                {#if application.applicationStatus}
-                    <Button on:click={alterApplicationStatus} class="bg-red-600 text-white">
-                        {#if $isLoading} Changing... {:else} Alter Decision {/if}
-                    </Button>
-                {/if}
-            </div>
-        {:else}
-            <p class="text-red-500">No evaluation found for this application.</p>
-        {/if}
+            {#if application.applicationStatus}
+                <Button on:click={alterApplicationStatus} class="bg-red-600 text-white">
+                    {#if $isLoading} Changing... {:else} Alter Decision {/if}
+                </Button>
+            {/if}
+        </div>
     </DialogContent>
 </Dialog>
+
+<style>
+/* ✅ Ensure the modal content is scrollable */
+.scrollable-container {
+    max-height: 500px; /* Limits modal height */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.scrollable-content {
+    max-height: 400px; /* Limits height */
+    overflow-y: auto;  /* Enables vertical scrolling */
+    padding-right: 10px; /* Prevents content from hiding scrollbar */
+}
+
+/* ✅ Custom Rounded Scrollbar */
+.scrollable-content::-webkit-scrollbar {
+    width: 8px; /* Set scrollbar width */
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+    background: #f1f1f1; /* Light gray background */
+    border-radius: 10px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+    background: #888; /* Darker scrollbar */
+    border-radius: 10px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+    background: #555; /* Darker on hover */
+}
+
+/* ✅ Sticky header inside the modal */
+.sticky-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding-bottom: 10px;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+</style>
+
