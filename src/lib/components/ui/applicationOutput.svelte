@@ -39,7 +39,6 @@
 			}
 
 			if (!appDocRef) {
-				console.warn("⚠️ No document found for this application ID.");
 				isLoading.set(false);
 				return;
 			}
@@ -47,8 +46,6 @@
 			// ✅ Ensure `applicationStatus` is set
 			const updatedStatus = application.applicationStatus || application.aiRecommendation || "Under Review";
 			await updateDoc(appDocRef, { applicationStatus: updatedStatus });
-
-			console.log("✅ applicationStatus set to:", updatedStatus);
 
 			// ✅ Update local state
 			application.applicationStatus = updatedStatus;
@@ -89,10 +86,6 @@
 					const appDoc = querySnapshot.docs[0]; // ✅ Get the first matching document
 					appDocRef = doc(db, `Users/${userDoc.id}/Applications`, appDoc.id);
 					alteredUserEmail = userData?.userEmail || "Unknown Email";
-
-					console.log(`✅ Found Application in User ${userDoc.id}'s Collection`);
-					console.log(`   - Altering Application Document ID: ${appDoc.id}`);
-					console.log(`   - User Email: ${alteredUserEmail}`);
 					break;
 				}
 			}
@@ -130,16 +123,8 @@
 		}
 	}
 
-	function handleDialogChange(open) {
+function handleDialogChange(open) {
     isOpen = open;
-
-    if (open) {
-        console.log("📌 Modal Opened");
-        console.log("   - Application ID:", application?.applicationID || "No ID Found");
-        console.log("   - AI Recommendation:", application?.aiRecommendation || "No Recommendation");
-        console.log("   - AI Justification:", application?.aiJustification || "No Justification");
-    }
-
     if (!open) {
         document.body.style.overflow = ""; // Restore scrollbar when closing
     }
@@ -148,44 +133,84 @@
 </script>
 
 <Dialog open={isOpen} modal={false} on:openChange={handleDialogChange} on:close={() => isOpen = false}>
-	<DialogContent>
-		<DialogHeader>
+	<DialogContent class="custom-scrollbar">
+		<DialogHeader class="sticky-header">
 			<DialogTitle>Application Evaluation</DialogTitle>
 			<DialogDescription>Here is the AI-generated recommendation.</DialogDescription>
 		</DialogHeader>
 
-		{#if application}
-			<div class="space-y-2">
-				<p><strong>Application ID:</strong> {application.applicationID}</p>
-				<p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
-				<p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
-				<p><strong>Justification:</strong> {application.aiJustification}</p>
-				<p><strong>Current Status:</strong>
-					{#if application.applicationStatus}
-						<span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
-					{:else}
-						<span class="px-2 py-1 rounded bg-yellow-200">Awaiting Confirmation</span>
-					{/if}
-				</p>
-			</div>
+		<!-- ✅ Make the content scrollable -->
+		<div class="scrollable-content">
+			{#if application}
+				<div class="space-y-2">
+					<p><strong>Application ID:</strong> {application.applicationID}</p>
+					<p><strong>Quant-AI Recommendation:</strong> {application.aiRecommendation}</p>
+					<p><strong>Quant-AI Score:</strong> {application.aiScore}</p>
+					<p><strong>Justification:</strong> {application.aiJustification}</p>
+					<p><strong>Current Status:</strong>
+						{#if application.applicationStatus}
+							<span class="px-2 py-1 rounded bg-gray-200">{application.applicationStatus}</span>
+						{:else}
+							<span class="px-2 py-1 rounded bg-yellow-200">Awaiting Confirmation</span>
+						{/if}
+					</p>
+				</div>
+			{:else}
+				<p class="text-red-500">No evaluation found for this application.</p>
+			{/if}
+		</div>
 
-			<div class="mt-4 flex gap-3">
-				<!-- ✅ Show Confirm button if status is missing -->
-				{#if !application.applicationStatus}
-					<Button on:click={confirmApplication} class="bg-blue-600 text-white">
-						{#if $isLoading} Processing... {:else} Confirm Recommendation {/if}
-					</Button>
-				{/if}
+		<!-- ✅ Action Buttons -->
+		<div class="mt-4 flex gap-3">
+			{#if !application.applicationStatus}
+				<Button on:click={confirmApplication} class="bg-blue-600 text-white">
+					{#if $isLoading} Processing... {:else} Confirm Recommendation {/if}
+				</Button>
+			{/if}
 
-				<!-- ✅ Show Alter button if status exists -->
-				{#if application.applicationStatus}
-					<Button on:click={alterApplicationStatus} class="bg-red-600 text-white">
-						{#if $isLoading} Changing... {:else} Alter Decision {/if}
-					</Button>
-				{/if}
-			</div>
-		{:else}
-			<p class="text-red-500">No evaluation found for this application.</p>
-		{/if}
+			{#if application.applicationStatus}
+				<Button on:click={alterApplicationStatus} class="bg-red-600 text-white">
+					{#if $isLoading} Changing... {:else} Alter Decision {/if}
+				</Button>
+			{/if}
+		</div>
 	</DialogContent>
 </Dialog>
+
+<style>
+/* ✅ Make content inside modal scrollable */
+.scrollable-content {
+    max-height: 400px; /* Limits height */
+    overflow-y: auto;  /* Enables vertical scrolling */
+    padding-right: 10px; /* Prevents content from hiding scrollbar */
+}
+
+/* ✅ Custom Scrollbar Styling */
+.scrollable-content::-webkit-scrollbar {
+    width: 8px; /* Set scrollbar width */
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+    background: #f1f1f1; /* Light gray background */
+    border-radius: 10px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+    background: #888; /* Darker scrollbar */
+    border-radius: 10px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+    background: #555; /* Darker on hover */
+}
+
+/* ✅ Ensure the modal header remains visible while scrolling */
+.sticky-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding-bottom: 10px;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+</style>
