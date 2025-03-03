@@ -105,7 +105,7 @@
 						{:else}
 							<!-- ✅ Hide Status (Show "Under Review" Placeholder) -->
 							<span class="px-3 py-1 text-sm font-medium rounded-lg under-review">
-								Under Review (Waiting 48 hours)
+								Under Review
 							</span>
 						{/if}
 					{:else}
