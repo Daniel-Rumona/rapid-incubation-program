@@ -106,10 +106,11 @@
 				return;
 			}
 
-			// ✅ Toggle the AI recommendation
-			let newAIRecommendation = currentAIRecommendation === "Accepted" || currentAIRecommendation === "Accept"
-				? "Rejected"
-				: "Accepted";
+			 let newAIRecommendation =
+            currentAIRecommendation === "Accepted" || currentAIRecommendation === "Accept"
+                ? "Rejected"
+                : "Accepted";
+
 
 			// ✅ Update Firestore document
 			await updateDoc(appDocRef, { applicationStatus: newAIRecommendation });
