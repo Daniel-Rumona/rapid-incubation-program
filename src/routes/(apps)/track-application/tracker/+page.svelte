@@ -23,7 +23,6 @@
 	import { onAuthStateChanged } from "firebase/auth";
 	import { db } from "$lib/firebase";
 	import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
-	import { doc} from "firebase/firestore"; 
 	import { onMount } from 'svelte';
 	import { cn } from '$lib/utils';
 	import { page } from '$app/stores';
