@@ -121,10 +121,6 @@
 			// ✅ Update Firestore document
 			await updateDoc(appDocRef, { aiRecommendation: newAIRecommendation });
 
-			console.log(`✅ Successfully Updated AI Recommendation: ${newAIRecommendation}`);
-			console.log(`   - Application ID: ${application.applicationID}`);
-			console.log(`   - User Email: ${alteredUserEmail}`);
-
 			// ✅ Update the application locally
 			application.aiRecommendation = newAIRecommendation;
 		} catch (error) {
@@ -135,20 +131,11 @@
 	}
 
 	function handleDialogChange(open) {
-    isOpen = open;
-
-    if (open) {
-        console.log("📌 Modal Opened");
-        console.log("🔹 Selected Application:", application);
-        console.log("🔹 Application ID:", application?.applicationID || "No ID Found");
-        
-        fetchUserEmail(application?.applicationID); // Fetch and log user email
-    }
-
-    if (!open) {
-        document.body.style.overflow = ""; // Restore scrollbar when closing
-    }
-}
+		isOpen = open;
+		if (!open) {
+			document.body.style.overflow = ""; // Restore scrollbar when closing
+		}
+	}
 
 </script>
 
