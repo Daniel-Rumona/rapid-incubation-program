@@ -116,11 +116,6 @@
         return;
     }
 
-    console.log("📌 Attempting to Open Modal for:");
-    console.log("   - Application ID:", app.applicationID);
-    console.log("   - AI Recommendation:", app.aiRecommendation);
-    console.log("   - AI Justification:", app.aiJustification);
-
     // ✅ Close the modal first to force a reset
     isModalOpen.set(false);
 
@@ -128,26 +123,54 @@
         // ✅ Make sure we're setting a fresh copy of the application
         selectedApplication.set({ ...app });
 
-        console.log("✅ Selected Application Set:");
-        console.log("   - Application ID:", get(selectedApplication)?.applicationID);
-        console.log("   - AI Recommendation:", get(selectedApplication)?.aiRecommendation);
-        console.log("   - AI Justification:", get(selectedApplication)?.aiJustification);
-
         isModalOpen.set(true);
     }, 10);
 }
 
+	
+async function refreshApplicationStatus(applicationID) {
+    try {
+        const usersRef = collection(db, "Users");
+        const usersSnapshot = await getDocs(usersRef);
 
-	function closeRecommendationModal() {
-		isModalOpen.set(false);
+        for (const userDoc of usersSnapshot.docs) {
+            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+            const q = query(applicationsRef, where("applicationID", "==", applicationID));
+            const querySnapshot = await getDocs(q);
 
-		// Ensure Radix UI doesn't block scrolling
-		setTimeout(() => {
-			if (!get(isModalOpen)) {
-				document.body.style.overflow = ""; // ✅ Restore scrollbar only if modal is fully closed
-			}
-		}, 50);
-	}
+            if (!querySnapshot.empty) {
+                const appDoc = querySnapshot.docs[0];
+                const updatedApp = appDoc.data();
+
+                // ✅ Update the selected application with new data
+                selectedApplication.set(updatedApp);
+                console.log("✅ Application Status Updated:", updatedApp.applicationStatus);
+                return;
+            }
+        }
+
+        console.warn("⚠️ Application ID not found in Firestore.");
+    } catch (error) {
+        console.error("🔥 Error refreshing application status:", error);
+    }
+}
+function closeRecommendationModal() {
+    isModalOpen.set(false);
+
+    setTimeout(async () => {
+        // ✅ Restore scrolling when modal is fully closed
+        if (!get(isModalOpen)) {
+            document.body.style.overflow = "";
+        }
+
+        const app = get(selectedApplication);
+        if (app) {
+            console.log("🔄 Checking for updated application status...");
+            await refreshApplicationStatus(app.applicationID);
+        }
+    }, 300); // Small delay ensures smooth closing
+}
+
 
 
 	// Update Status in Firestore
