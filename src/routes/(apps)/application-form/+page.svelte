@@ -392,23 +392,31 @@ const getUserID = () => {
 
 	// ✅ Auto-format Registration Number (YYYY/NNNNNN/06)
 	function formatRegistrationNumber(value: string): string {
-		// 🔹 Remove non-digit characters and slashes
-		let digits = value.replace(/\D/g, "");
+    // 🔹 Remove any non-numeric characters except slashes
+    let digits = value.replace(/\D/g, "");
 
-		// 🔹 Ensure we have enough digits (at least 10)
-		if (digits.length < 10) return value; // Return unchanged if not enough digits
+    // 🔹 Ensure we have at least 10 digits for standard formatting
+    if (digits.length < 10) return value; // Return unchanged if not enough digits
 
-		// 🔹 Extract parts
-		let year = digits.slice(0, 4); // First 4 digits = Year
-		let sequence = digits.slice(4, 10); // Next 6 digits = Unique Number
-		let suffix = "06"; // Default suffix for Pty Ltd (06)
+    // 🔹 Extract parts
+    let year = digits.slice(0, 4); // First 4 digits = Year
+    let sequence = digits.slice(4, 10); // Next 6 digits = Unique Number
+    let suffix = digits.length > 10 ? digits.slice(10) : ""; // Any extra digits (suffix)
 
-		// 🔹 If already formatted correctly, return as is
-		if (value.match(/^\d{4}\/\d{6}\/\d{2}$/)) return value;
+    // 🔹 If the value is already formatted, return it
+    if (value.match(/^\d{4}\/\d{6}\/\d{2}$/)) return value;
 
-		// 🔹 Construct formatted string
-		return `${year}/${sequence}/${suffix}`;
-	}
+    // 🔹 Construct formatted string with slashes
+    let formattedNumber = `${year}/${sequence}`;
+    
+    // 🔹 Append suffix only if it's present and valid
+    if (suffix.length > 0) {
+        formattedNumber += `/${suffix}`;
+    }
+
+    return formattedNumber;
+}
+
 
 	// ✅ Ensure age is limited to 2 digits only
 	function validateAge(event: FocusEvent) {
@@ -906,14 +914,14 @@ const submitForm = async () => {
 							on:input={(e) => formData.update(data => ({ ...data, yearsOfTrading: validateYearsOfTrading(e.target.value) }))}
 							class="w-full"
 						/>
-						<Label for="registration-number">Registration Number</Label>
 						<Input
-							id="registration-number"
-							bind:value={$formData.registrationNumber}
-							placeholder="Enter Your Registration Number"
-							on:input={(e) => formData.update(data => ({ ...data, registrationNumber: formatRegistrationNumber(e.target.value) }))}
-							class="w-full"
-						/>
+    id="registration-number"
+    bind:value={$formData.registrationNumber}
+    placeholder="Enter Your Registration Number"
+    on:input={(e) => formData.update(data => ({ ...data, registrationNumber: formatRegistrationNumber(e.target.value) }))}
+    class="w-full"
+/>
+
 						<Label for="date-registration">Date of Registration</Label>
 						<Input id="date-registration" type="date" bind:value={$formData.dateOfRegistration} class="w-full"/>
 
