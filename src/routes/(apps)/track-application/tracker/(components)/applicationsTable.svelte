@@ -90,18 +90,41 @@
 				</div>
 
 				<!-- Status with Badge Styling -->
-				<div class="text-center">
-    <span
-			class="px-3 py-1 text-sm font-medium rounded-lg cursor-pointer"
-			class:accepted={app.applicationStatus === "Accepted"}
-			class:under-review={app.applicationStatus === "Under Review"}
-			class:rejected={app.applicationStatus === "Rejected"}
-		>
-        {app.applicationStatus}
-    </span>
+					<div class="text-center">
+					{#if app.submittedAt}
+						{#if (new Date().getTime() - new Date(app.submittedAt.seconds * 1000).getTime()) / (1000 * 60 * 60) >= 48}
+							<!-- ✅ Show Status ONLY After 48 Hours -->
+							<span
+								class="px-3 py-1 text-sm font-medium rounded-lg cursor-pointer"
+								class:accepted={app.applicationStatus === "Accepted"}
+								class:under-review={app.applicationStatus === "Under Review"}
+								class:rejected={app.applicationStatus === "Rejected"}
+							>
+								{app.applicationStatus || "Awaiting Confirmation"}
+							</span>
+						{:else}
+							<!-- ✅ Hide Status (Show "Under Review" Placeholder) -->
+							<span class="px-3 py-1 text-sm font-medium rounded-lg under-review">
+								Under Review (Waiting 48 hours)
+							</span>
+						{/if}
+					{:else}
+						<span class="px-3 py-1 text-sm font-medium rounded-lg bg-gray-300">No Submission Time</span>
+					{/if}
 				</div>
+				
 
-				<style>
+
+				<!-- Submission Date -->
+				<div class="text-sm text-gray-500 text-right">
+					Submitted: {new Date(app.submittedAt.seconds * 1000).toLocaleDateString()}
+				</div>
+			</div>
+
+		</div>
+	{/each}
+</div>
+<style>
             .accepted {
                 background-color: #d1e7ff; /* Light Blue */
                 color: #0b6cbf;
@@ -117,14 +140,3 @@
                 color: #bf0b0b;
             }
 				</style>
-
-
-				<!-- Submission Date -->
-				<div class="text-sm text-gray-500 text-right">
-					Submitted: {new Date(app.submittedAt.seconds * 1000).toLocaleDateString()}
-				</div>
-			</div>
-
-		</div>
-	{/each}
-</div>
