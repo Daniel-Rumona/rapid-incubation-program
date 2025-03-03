@@ -319,47 +319,30 @@ function getLastFourMonths(): string[] {
 
 
 	// Function to Generate Application ID
-	const generateApplicationID = async (userId) => {
+	const generateApplicationID = async () => {
     const currentYear = new Date().getFullYear();
-    const currentDay = new Date().getDate().toString().padStart(2, "0"); // Ensure 2-digit format (e.g., "03")
+    const currentDay = new Date().getDate().toString().padStart(2, "0"); // Ensures a two-digit format (e.g., "03")
 
-    // 🔹 Get the user's applications collection
-    const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-    const q = query(applicationsCollection, orderBy("applicationID", "desc"));
-    
-    // 🔹 Fetch all existing application IDs
-    const querySnapshot = await getDocs(q);
-    let lastNumber = 0;
-    let existingApplicationIDs = new Set();
+    const counterRef = doc(db, "ApplicationCounter", "global");
 
-    // 🔹 Store existing application IDs to prevent duplicates
-    querySnapshot.forEach(doc => {
-        existingApplicationIDs.add(doc.data().applicationID);
-    });
+    try {
+        return await runTransaction(db, async (transaction) => {
+            const counterDoc = await transaction.get(counterRef);
+            let totalApplications = counterDoc.exists() ? counterDoc.data().count || 0 : 0;
 
-    if (!querySnapshot.empty) {
-        const lastApplication = querySnapshot.docs[0].data();
-        const lastAppID = lastApplication.applicationID; // Example: "2024/001234/03"
+            const newApplicationNumber = (totalApplications + 1).toString().padStart(6, "0");
+            const newApplicationID = `${currentYear}/${newApplicationNumber}/${currentDay}`;
 
-        // Extract the middle number (NNNNNN) from the last applicationID
-        const match = lastAppID.match(/\/(\d{6})\//);
-        if (match) {
-            lastNumber = parseInt(match[1]); // Extracted "001234" -> 1234
-        }
+            // ✅ Save the new counter value
+            transaction.set(counterRef, { count: totalApplications + 1 });
+
+            // ✅ Ensure the transaction returns the application ID
+            return newApplicationID;
+        });
+    } catch (error) {
+        console.error("🔥 Error generating unique application ID:", error);
+        throw new Error("Failed to generate application ID.");
     }
-
-    let newApplicationNumber;
-    let newApplicationID;
-
-    // 🔹 Keep generating new numbers until a unique one is found
-    do {
-        lastNumber++; // Increment the last used number
-        newApplicationNumber = lastNumber.toString().padStart(6, "0"); // Ensure 6-digit format
-        newApplicationID = `${currentYear}/${newApplicationNumber}/${currentDay}`;
-    } while (existingApplicationIDs.has(newApplicationID)); // Ensure uniqueness
-
-
-    return newApplicationID;
 };
 
 const getUserID = () => {
