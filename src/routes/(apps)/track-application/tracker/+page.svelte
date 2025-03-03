@@ -23,6 +23,7 @@
 	import { onAuthStateChanged } from "firebase/auth";
 	import { db } from "$lib/firebase";
 	import { collection, getDocs, query, where } from "firebase/firestore";
+	import { doc} from "firebase/firestore"; 
 	import { onMount } from 'svelte';
 	import { cn } from '$lib/utils';
 	import { page } from '$app/stores';
@@ -75,71 +76,74 @@
 	}
 
 async function fetchUserApplications() {
-	try {
-		const user = auth.currentUser;
-		if (!user) {
-			hasApplications.set(false);
-			isLoading.set(false);
-			return;
-		}
+    try {
+        const user = auth.currentUser;
+        if (!user) {
+            hasApplications.set(false);
+            isLoading.set(false);
+            return;
+        }
 
-		const userId = user.uid; // ✅ Use UID directly
-		console.log("📌 Using UID for Firestore queries:", userId);
+        const userId = user.uid; 
+        console.log("📌 Using UID for Firestore queries:", userId);
 
-		const applicationsRef = collection(db, `Users/${userId}/Applications`);
-		const querySnapshot = await getDocs(applicationsRef);
+        const applicationsRef = collection(db, `Users/${userId}/Applications`);
+        const querySnapshot = await getDocs(applicationsRef);
 
-		if (!querySnapshot.empty) {
-			const applications = querySnapshot.docs.map(doc => doc.data());
+        if (!querySnapshot.empty) {
+            const applications = querySnapshot.docs.map(doc => {
+                let appData = doc.data();
+                
+                // Ensure `submittedAt` is a valid Date object
+                let submittedDate;
+                if (appData.submittedAt) {
+                    if (typeof appData.submittedAt === "string") {
+                        submittedDate = new Date(appData.submittedAt);
+                    } else if (appData.submittedAt.toDate) {
+                        submittedDate = appData.submittedAt.toDate();
+                    } else {
+                        console.warn("⚠️ submittedAt field is missing or invalid for:", appData);
+                        submittedDate = null;
+                    }
+                } else {
+                    submittedDate = null;
+                }
 
-			// ✅ Count applications correctly
-			totalApplications.set(applications.length);
-			acceptedApplications.set(applications.filter(app => app.applicationStatus === "Accepted").length);
-			rejectedApplications.set(applications.filter(app => app.applicationStatus === "Rejected").length);
+                // ✅ Calculate time difference (in hours)
+                const now = new Date();
+                const timeDiff = submittedDate 
+                    ? (now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60) 
+                    : 9999; // Default to large value if no date exists
 
-			// ✅ Convert submittedAt properly for review status check
-			const now = new Date();
-			let underReviewCount = 0;
+                // ✅ If under 48 hours, remove `applicationStatus`
+                if (timeDiff <= 48) {
+                    appData.applicationStatus = null; // Hide status
+                }
 
-			applications.forEach(appData => {
-				if (appData.submittedAt) {
-					if (typeof appData.submittedAt === "string") {
-						appData.submittedAt = new Date(appData.submittedAt);
-					} else if (appData.submittedAt.toDate) {
-						appData.submittedAt = appData.submittedAt.toDate();
-					} else {
-						console.warn("⚠️ submittedAt field is missing or invalid for:", appData);
-						appData.submittedAt = "N/A";
-					}
-				} else {
-					appData.submittedAt = "N/A";
-				}
+                return appData;
+            });
 
-				// ✅ Determine "Under Review" status (if within 48 hours)
-				const timeDiff = appData.submittedAt !== "N/A"
-					? (now.getTime() - appData.submittedAt.getTime()) / (1000 * 60 * 60)
-					: 9999;
+            // ✅ Count applications correctly
+            totalApplications.set(applications.length);
+            acceptedApplications.set(applications.filter(app => app.applicationStatus === "Accepted").length);
+            rejectedApplications.set(applications.filter(app => app.applicationStatus === "Rejected").length);
+            underReviewApplications.set(applications.filter(app => !app.applicationStatus).length);
 
-				if (timeDiff <= 48) {
-					underReviewCount++;
-				}
-			});
-
-			underReviewApplications.set(underReviewCount);
-
-			console.log(`✅ Total: ${applications.length}, Accepted: ${get(acceptedApplications)}, Rejected: ${get(rejectedApplications)}, Under Review: ${underReviewCount}`);
-			hasApplications.set(true);
-		} else {
-			console.warn("⚠️ No applications found.");
-			hasApplications.set(false);
-		}
-	} catch (error) {
-		console.error("🔥 Error fetching applications:", error);
-		hasApplications.set(false);
-	} finally {
-		isLoading.set(false);
-	}
+            console.log(`✅ Total: ${applications.length}, Accepted: ${get(acceptedApplications)}, Rejected: ${get(rejectedApplications)}, Under Review: ${get(underReviewApplications)}`);
+            
+            hasApplications.set(true);
+        } else {
+            console.warn("⚠️ No applications found.");
+            hasApplications.set(false);
+        }
+    } catch (error) {
+        console.error("🔥 Error fetching applications:", error);
+        hasApplications.set(false);
+    } finally {
+        isLoading.set(false);
+    }
 }
+
 
 
 	onMount(() => {
