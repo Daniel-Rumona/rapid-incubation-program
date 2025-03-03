@@ -285,13 +285,14 @@
 
 	// File Input Binding
 	let selectedFiles: File[] = [];
-
 	const handleFileSelection = (event: Event) => {
-		const input = event.target as HTMLInputElement;
-		if (input.files) {
-			selectedFiles = Array.from(input.files);
-		}
-	};
+    		const input = event.target as HTMLInputElement;
+    	if (input.files) {
+        const newFiles = Array.from(input.files);
+        selectedFiles = [...selectedFiles, ...newFiles]; // 🔹 Append instead of replace
+        console.log("📂 Current selected files:", selectedFiles.map(file => file.name));
+    }
+};
 
 function getLastFourMonths(): string[] {
     const monthNames = [
@@ -565,11 +566,13 @@ const getUserID = () => {
 
 const submitForm = async () => {
     try {
+        console.log("🚀 Starting form submission...");
         showModal.set(true);
         updateModalMessage();
 
         const user = auth.currentUser;
         if (!user) {
+            console.error("❌ User not logged in!");
             alert("❌ You must be logged in to submit.");
             showModal.set(false);
             return;
@@ -579,22 +582,37 @@ const submitForm = async () => {
         console.log("📌 Using UID for storage:", userId);
 
         if (!userId) {
-            alert("❌ User ID not found in Firestore.");
+            console.error("❌ User ID not found in Firestore.");
+            alert("❌ User ID not found.");
             showModal.set(false);
             return;
         }
 
         // 🔹 Upload Documents to Firebase Storage
+        console.log("📂 Selected files to upload:", selectedFiles);
         let uploadedFiles: string[] = [];
+
         for (let file of selectedFiles) {
-            const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            uploadedFiles.push(downloadURL);
+            console.log(`📤 Uploading file: ${file.name}`);
+            try {
+                const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+                uploadedFiles.push(downloadURL);
+                console.log(`✅ Successfully uploaded: ${file.name}`);
+            } catch (uploadError) {
+                console.error(`🔥 Error uploading ${file.name}:`, uploadError);
+                alert(`❌ Failed to upload ${file.name}`);
+            }
         }
 
+        console.log("📁 All uploaded document URLs:", uploadedFiles);
+
         const applicationID = await generateApplicationID(userId);
+        console.log("🆔 Generated Application ID:", applicationID);
+
         const form = get(formData);
+        console.log("📝 Form Data before submission:", form);
 
         // 🔍 **Eligibility Checks**
         let isRejected = false;
@@ -615,6 +633,7 @@ const submitForm = async () => {
 
         // ✅ **Only send to AI if NOT rejected**
         if (!isRejected) {
+            console.log("🤖 Sending application to AI for evaluation...");
             const applicationData = {
                 company_name: form.businessName,
                 company_registration_no: form.registrationNumber,
@@ -628,9 +647,13 @@ const submitForm = async () => {
             };
 
             aiResponse = await submitToAI(applicationData);
+            console.log("🤖 AI Response:", aiResponse);
+        } else {
+            console.log("❌ Application automatically rejected:", rejectionReason);
         }
 
         // ✅ **Save Application to Firestore with AI Response**
+        console.log("📝 Saving application to Firestore...");
         const applicationsCollection = collection(db, `Users/${userId}/Applications`);
         await addDoc(applicationsCollection, {
             applicationID,
@@ -643,13 +666,17 @@ const submitForm = async () => {
             applicationStatus: aiResponse.aiRecommendation
         });
 
+        console.log("✅ Application successfully saved in Firestore.");
+
         // ✅ **Send Email Notification for ALL Applicants**
         try {
+            console.log("📧 Sending confirmation email...");
             const sendEmail = httpsCallable(functions, "sendApplicationEmail");
             await sendEmail({
                 businessEmail: form.businessEmail,
                 applicantName: form.fullName || `${form.firstName} ${form.lastName}`,
             });
+            console.log("✅ Email sent successfully.");
         } catch (emailError) {
             console.error("🔥 Email sending failed:", emailError);
         }
@@ -659,6 +686,7 @@ const submitForm = async () => {
         goto('/track-application/tracker');
 
     } catch (error) {
+        console.error("🔥 Error submitting application:", error);
         alert("❌ Error submitting application. Please try again.");
         showModal.set(false);
     }
