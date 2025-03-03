@@ -106,10 +106,13 @@
 				return;
 			}
 
-			 let newAIRecommendation =
-            currentAIRecommendation === "Accepted" || currentAIRecommendation === "Accept"
-                ? "Rejected"
-                : "Accepted";
+			let newAIRecommendation =
+    currentAIRecommendation === "Accepted" || currentAIRecommendation === "Accept"
+        ? "Rejected"
+        : currentAIRecommendation === "Rejected" || currentAIRecommendation === "Reject"
+        ? "Accepted"
+        : "Awaiting Confirmation"; // Default if unknown
+
 
 
 			// ✅ Update Firestore document
