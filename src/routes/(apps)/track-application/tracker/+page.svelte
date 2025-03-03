@@ -74,7 +74,7 @@
 		}
 	}
 
-	async function fetchUserApplications() {
+async function fetchUserApplications() {
 	try {
 		const user = auth.currentUser;
 		if (!user) {
@@ -83,21 +83,51 @@
 			return;
 		}
 
-		const userId = user.uid; // ✅ Directly use UID
+		const userId = user.uid; // ✅ Use UID directly
 		console.log("📌 Using UID for Firestore queries:", userId);
 
 		const applicationsRef = collection(db, `Users/${userId}/Applications`);
 		const querySnapshot = await getDocs(applicationsRef);
 
 		if (!querySnapshot.empty) {
-			const applications = querySnapshot.docs.map((doc) => doc.data());
+			const applications = querySnapshot.docs.map(doc => doc.data());
 
+			// ✅ Count applications correctly
 			totalApplications.set(applications.length);
-			acceptedApplications.set(applications.filter(app => app.applicationStatus === "Rejected").length);
+			acceptedApplications.set(applications.filter(app => app.applicationStatus === "Accepted").length);
 			rejectedApplications.set(applications.filter(app => app.applicationStatus === "Rejected").length);
-			underReviewApplications.set(applications.filter(app => app.status === "Under Review").length);
 
-			console.log(`✅ Total: ${applications.length}, Rejected: ${rejectedApplications}, Under Review: ${underReviewApplications}`);
+			// ✅ Convert submittedAt properly for review status check
+			const now = new Date();
+			let underReviewCount = 0;
+
+			applications.forEach(appData => {
+				if (appData.submittedAt) {
+					if (typeof appData.submittedAt === "string") {
+						appData.submittedAt = new Date(appData.submittedAt);
+					} else if (appData.submittedAt.toDate) {
+						appData.submittedAt = appData.submittedAt.toDate();
+					} else {
+						console.warn("⚠️ submittedAt field is missing or invalid for:", appData);
+						appData.submittedAt = "N/A";
+					}
+				} else {
+					appData.submittedAt = "N/A";
+				}
+
+				// ✅ Determine "Under Review" status (if within 48 hours)
+				const timeDiff = appData.submittedAt !== "N/A"
+					? (now.getTime() - appData.submittedAt.getTime()) / (1000 * 60 * 60)
+					: 9999;
+
+				if (timeDiff <= 48) {
+					underReviewCount++;
+				}
+			});
+
+			underReviewApplications.set(underReviewCount);
+
+			console.log(`✅ Total: ${applications.length}, Accepted: ${get(acceptedApplications)}, Rejected: ${get(rejectedApplications)}, Under Review: ${underReviewCount}`);
 			hasApplications.set(true);
 		} else {
 			console.warn("⚠️ No applications found.");
