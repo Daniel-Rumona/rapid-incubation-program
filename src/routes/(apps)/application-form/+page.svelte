@@ -320,44 +320,56 @@ function getLastFourMonths(): string[] {
 
 	// Function to Generate Application ID
 	const generateApplicationID = async (userId) => {
-		const currentYear = new Date().getFullYear();
-		const currentDay = new Date().getDate().toString().padStart(2, "0"); // Ensure 2-digit format (e.g., "05")
+    const currentYear = new Date().getFullYear();
+    const currentDay = new Date().getDate().toString().padStart(2, "0"); // Ensure 2-digit format (e.g., "03")
 
-		// 🔹 Get the user's applications collection
-		const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-		const q = query(applicationsCollection, orderBy("applicationID", "desc"));
+    // 🔹 Get the user's applications collection
+    const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+    const q = query(applicationsCollection, orderBy("applicationID", "desc"));
+    
+    // 🔹 Fetch all existing application IDs
+    const querySnapshot = await getDocs(q);
+    let lastNumber = 0;
+    let existingApplicationIDs = new Set();
 
-		// 🔹 Fetch existing applications
-		const querySnapshot = await getDocs(q);
-		let lastNumber = 0;
+    // 🔹 Store existing application IDs to prevent duplicates
+    querySnapshot.forEach(doc => {
+        existingApplicationIDs.add(doc.data().applicationID);
+    });
 
-		if (!querySnapshot.empty) {
-			const lastApplication = querySnapshot.docs[0].data();
-			const lastAppID = lastApplication.applicationID; // Example: "2024/001234/07"
+    if (!querySnapshot.empty) {
+        const lastApplication = querySnapshot.docs[0].data();
+        const lastAppID = lastApplication.applicationID; // Example: "2024/001234/03"
 
-			// Extract the middle number (NNNNNN) from the last applicationID
-			const match = lastAppID.match(/\/(\d{6})\//);
-			if (match) {
-				lastNumber = parseInt(match[1]); // Extracted 001234 -> 1234
-			}
-		}
+        // Extract the middle number (NNNNNN) from the last applicationID
+        const match = lastAppID.match(/\/(\d{6})\//);
+        if (match) {
+            lastNumber = parseInt(match[1]); // Extracted "001234" -> 1234
+        }
+    }
 
-		// 🔹 Generate next application number
-		const newApplicationNumber = (lastNumber + 1).toString().padStart(6, "0"); // Ensure 6-digit format (e.g., "001235")
+    let newApplicationNumber;
+    let newApplicationID;
 
-		// 🔹 Construct final Application ID
-		return `${currentYear}/${newApplicationNumber}/${currentDay}`;
-	};
+    // 🔹 Keep generating new numbers until a unique one is found
+    do {
+        lastNumber++; // Increment the last used number
+        newApplicationNumber = lastNumber.toString().padStart(6, "0"); // Ensure 6-digit format
+        newApplicationID = `${currentYear}/${newApplicationNumber}/${currentDay}`;
+    } while (existingApplicationIDs.has(newApplicationID)); // Ensure uniqueness
 
-	const getUserID = () => {
+
+    return newApplicationID;
+};
+
+const getUserID = () => {
     const user = auth.currentUser;
     return user ? user.uid : null; // ✅ Directly return Firebase Auth UID
 };
 
 	const submitToAI = async (applicationData) => {
 		try {
-			console.log("📡 Sending application data to AI Scoring API...");
-
+		
 			const response = await fetch("https://rairo-ai-screener.hf.space/api/evaluate", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -365,7 +377,6 @@ function getLastFourMonths(): string[] {
 			});
 
 			const result = await response.json();
-			console.log("✅ Raw AI Response:", result);
 
 			// 🔹 Check if `raw_response` exists and contains valid JSON
 			let aiEvaluation = null;
@@ -378,9 +389,9 @@ function getLastFourMonths(): string[] {
 						.trim();                    // Trim whitespace
 
 					aiEvaluation = JSON.parse(cleanedJsonString);
-					console.log("✅ Parsed AI Evaluation:", aiEvaluation);
+				
 				} catch (parseError) {
-					console.error("🔥 Error parsing AI evaluation JSON:", parseError);
+					return null;
 				}
 			}
 
@@ -390,7 +401,6 @@ function getLastFourMonths(): string[] {
 				aiJustification: aiEvaluation?.["Justification"] || "No justification provided",
 			};
 		} catch (error) {
-			console.error("🔥 Error submitting to AI Screener:", error);
 			return null;
 		}
 	};
@@ -656,11 +666,7 @@ const submitForm = async () => {
             await sendEmail({
                 businessEmail: form.businessEmail,
                 applicantName: form.fullName || `${form.firstName} ${form.lastName}`,
-                applicationStatus: aiResponse.aiRecommendation,
-                rejectionReason: isRejected ? rejectionReason : null, // Send reason if rejected
             });
-
-            console.log(`📧 Email sent successfully to ${form.businessEmail}`);
         } catch (emailError) {
             console.error("🔥 Email sending failed:", emailError);
         }
@@ -670,7 +676,6 @@ const submitForm = async () => {
         goto('/track-application/tracker');
 
     } catch (error) {
-        console.error("🔥 Firestore Error:", error);
         alert("❌ Error submitting application. Please try again.");
         showModal.set(false);
     }
