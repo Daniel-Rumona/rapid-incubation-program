@@ -570,88 +570,112 @@ function getLastFourMonths(): string[] {
 		setTimeout(updateModalMessage, 10000); // Change message every 2 seconds
 	};
 
-	const submitForm = async () => {
-		try {
-			showModal.set(true);
-			updateModalMessage();
+const submitForm = async () => {
+    try {
+        showModal.set(true);
+        updateModalMessage();
 
-			const user = auth.currentUser;
-			if (!user) {
-				alert("❌ You must be logged in to submit.");
-				showModal.set(false);
-				return;
-			}
+        const user = auth.currentUser;
+        if (!user) {
+            alert("❌ You must be logged in to submit.");
+            showModal.set(false);
+            return;
+        }
 
-			const userId = user.uid; // ✅ Use Firebase Auth UID directly
-    			console.log("📌 Using UID for storage:", userId);
-			if (!userId) {
-				alert("❌ User ID not found in Firestore.");
-				showModal.set(false);
-				return;
-			}
+        const userId = user.uid;
+        console.log("📌 Using UID for storage:", userId);
 
-			// 🔹 Upload Documents to Firebase Storage
-			let uploadedFiles: string[] = [];
-			for (let file of selectedFiles) {
-				const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
-				const snapshot = await uploadBytes(storageRef, file);
-				const downloadURL = await getDownloadURL(snapshot.ref);
-				uploadedFiles.push(downloadURL);
-			}
+        if (!userId) {
+            alert("❌ User ID not found in Firestore.");
+            showModal.set(false);
+            return;
+        }
 
-			const applicationID = await generateApplicationID(userId);
-			const form = get(formData);
+        // 🔹 Upload Documents to Firebase Storage
+        let uploadedFiles: string[] = [];
+        for (let file of selectedFiles) {
+            const storageRef = ref(storage, `application_files/${userId}/${file.name}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            uploadedFiles.push(downloadURL);
+        }
 
-			// ✅ Prepare application data for AI
-			const applicationData = {
-				company_name: form.businessName,
-				company_registration_no: form.registrationNumber,
-				no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
-				sector: form.natureOfBusiness,
-				current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
-				current_business_turnover: parseInt(form.revenueFor2024 || "0"),
-				business_description: form.businessDescription,
-				tax_clearance: form.taxCompliance,
-				initial_support: form.motivation,
-			};
+        const applicationID = await generateApplicationID(userId);
+        const form = get(formData);
 
-			// 🔥 Send data to AI for evaluation
-			const aiResponse = await submitToAI(applicationData);
+        // 🔍 **Eligibility Checks**
+        let isRejected = false;
+        let rejectionReason = "";
 
-			// ✅ Save Application to Firestore with AI Response
-			const applicationsCollection = collection(db, `Users/${userId}/Applications`);
-			await addDoc(applicationsCollection, {
-				applicationID,
-				...form,
-				documents: uploadedFiles,
-				submittedAt: new Date(),
-				aiRecommendation: aiResponse.aiRecommendation,
-				aiScore: aiResponse.aiScore,
-				aiJustification: aiResponse.aiJustification,
-			});
+        if (form.businessAddressProvince !== "KwaZulu-Natal") {
+            isRejected = true;
+            rejectionReason = "Applicant is located outside KwaZulu-Natal.";
+        } else if (!["Durban", "Pinetown", "Umhlanga", "Amanzimtoti"].includes(form.businessAddressCity)) {
+            isRejected = true;
+            rejectionReason = "Applicant is not in Durban or surrounding areas.";
+        } else if (form.areYouDUTStudent === "Yes") {
+            isRejected = true;
+            rejectionReason = "Applicant is a current DUT student. Referred to InnoBiz.";
+        }
 
-			// **🔥 Send Email Confirmation**
-			try {
-				const sendEmail = httpsCallable(functions, "sendApplicationEmail"); // Cloud Function Call
-				await sendEmail({
-					businessEmail: form.businessEmail,
-					applicantName: form.fullName || `${form.firstName} ${form.lastName}`,
-				});
-				console.log(`📧 Email sent successfully to ${form.businessEmail}`);
-			} catch (emailError) {
-				console.error("🔥 Email sending failed:", emailError);
-			}
+        let aiResponse = { aiScore: 0, aiRecommendation: "Rejected", aiJustification: rejectionReason };
 
-			showModal.set(false);
-			alert(`✅ Application Submitted Successfully! Check Your Email For Confirmation.`);
-			goto('/track-application/tracker');
+        // ✅ **Only send to AI if NOT rejected**
+        if (!isRejected) {
+            const applicationData = {
+                company_name: form.businessName,
+                company_registration_no: form.registrationNumber,
+                no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
+                sector: form.natureOfBusiness,
+                current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
+                current_business_turnover: parseInt(form.revenueFor2024 || "0"),
+                business_description: form.businessDescription,
+                tax_clearance: form.taxCompliance,
+                initial_support: form.motivation,
+            };
 
-		} catch (error) {
-			console.error("🔥 Firestore Error:", error);
-			alert("❌ Error submitting application. Please try again.");
-			showModal.set(false);
-		}
-	};
+            aiResponse = await submitToAI(applicationData);
+        }
+
+        // ✅ **Save Application to Firestore with AI Response**
+        const applicationsCollection = collection(db, `Users/${userId}/Applications`);
+        await addDoc(applicationsCollection, {
+            applicationID,
+            ...form,
+            documents: uploadedFiles,
+            submittedAt: new Date(),
+            aiRecommendation: aiResponse.aiRecommendation,
+            aiScore: aiResponse.aiScore,
+            aiJustification: aiResponse.aiJustification,
+            applicationStatus: aiResponse.aiRecommendation
+        });
+
+        // ✅ **Send Email Notification for ALL Applicants**
+        try {
+            const sendEmail = httpsCallable(functions, "sendApplicationEmail");
+            await sendEmail({
+                businessEmail: form.businessEmail,
+                applicantName: form.fullName || `${form.firstName} ${form.lastName}`,
+                applicationStatus: aiResponse.aiRecommendation,
+                rejectionReason: isRejected ? rejectionReason : null, // Send reason if rejected
+            });
+
+            console.log(`📧 Email sent successfully to ${form.businessEmail}`);
+        } catch (emailError) {
+            console.error("🔥 Email sending failed:", emailError);
+        }
+
+        showModal.set(false);
+        alert(`✅ Application Submitted Successfully! Check Your Email For Confirmation.`);
+        goto('/track-application/tracker');
+
+    } catch (error) {
+        console.error("🔥 Firestore Error:", error);
+        alert("❌ Error submitting application. Please try again.");
+        showModal.set(false);
+    }
+};
+
 
 	const fetchApplicationData = async (userId) => {
 		try {
