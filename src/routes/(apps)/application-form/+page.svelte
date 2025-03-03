@@ -5,6 +5,7 @@
 	import { page } from "$app/stores";
 	import { goto } from "$app/navigation";
 	import { auth, db, storage, collection, getDocs, query, orderBy, addDoc, ref, uploadBytes, getDownloadURL } from "$lib/firebase";
+	import { doc, runTransaction } from "firebase/firestore"; 
 	import * as Card from '$lib/components/ui/card';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Select from '$lib/components/ui/select';
