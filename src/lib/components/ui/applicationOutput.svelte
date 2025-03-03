@@ -122,7 +122,7 @@
 			await updateDoc(appDocRef, { aiRecommendation: newAIRecommendation });
 
 			// ✅ Update the application locally
-			application.aiRecommendation = newAIRecommendation;
+			application.applicationStatus = newAIRecommendation;
 		} catch (error) {
 			console.error("🔥 Error updating AI recommendation:", error);
 		} finally {
