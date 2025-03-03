@@ -20,7 +20,7 @@ const genderColors = {
 	"Female": "lightpink"
 };
 
-// Fetch gender distribution from Firestore
+// ✅ **Fetch gender distribution from Firestore**
 const fetchGenderDistribution = async () => {
 	try {
 		console.log("🔍 Fetching gender distribution...");
@@ -28,66 +28,92 @@ const fetchGenderDistribution = async () => {
 		const usersRef = collection(db, "Users");
 		const usersSnapshot = await getDocs(usersRef);
 
-		let genderCounts = { "Male": 0, "Female": 0, "Other": 0 };
+		// ✅ **Initialize gender counts**
+		let genderCounts = { "Male": 0, "Female": 0 };
 
+		// ✅ **Check if Users collection is empty**
+		if (usersSnapshot.empty) {
+			console.warn("⚠️ No users found in Firestore.");
+			updateChart([]);
+			return;
+		}
+
+		// ✅ **Iterate through users**
 		for (const userDoc of usersSnapshot.docs) {
 			const userID = userDoc.id;
 			const applicationsRef = collection(db, `Users/${userID}/Applications`);
 			const applicationsSnapshot = await getDocs(applicationsRef);
 
+			// ✅ **Skip users with no applications**
+			if (applicationsSnapshot.empty) continue;
+
+			// ✅ **Loop through applications & count genders**
 			for (const appDoc of applicationsSnapshot.docs) {
 				const appData = appDoc.data();
-				const applicantGender = appData.applicantGender;
+				const applicantGender = appData.applicantGender?.trim(); // ✅ Trim to avoid extra spaces
 
-				if (genderCounts.hasOwnProperty(applicantGender)) {
+				// ✅ **Ensure value is valid before counting**
+				if (applicantGender === "Male" || applicantGender === "Female") {
 					genderCounts[applicantGender]++;
-				} 
+				} else {
+					console.warn(`⚠️ Skipping invalid gender: ${applicantGender} (Application ID: ${appData.applicationID})`);
+				}
 			}
 		}
 
-		// Convert gender counts to array format for D3
-		genderData = Object.entries(genderCounts).map(([gender, count]) => ({
-			gender,
-			count
-		}));
+		// ✅ **Convert gender counts to array format for D3**
+		genderData = Object.entries(genderCounts)
+			.filter(([_, count]) => count > 0) // ✅ Remove empty counts
+			.map(([gender, count]) => ({ gender, count }));
 
-		console.log("✅ Gender Distribution:", genderData);
+		console.log("✅ Final Gender Distribution:", genderData);
 
-		// Update the chart after fetching data
+		// ✅ **Update the chart after fetching data**
 		updateChart(genderData);
 	} catch (error) {
 		console.error("🔥 Error fetching gender distribution:", error);
 	}
 };
 
-// Load Data on Mount
+// ✅ **Load Data on Mount**
 onMount(async () => {
 	await fetchGenderDistribution();
 });
 
-// D3 Pie Chart Logic
+// ✅ **D3 Pie Chart Logic**
 const updateChart = (data) => {
-	console.log("Updating Chart with Data:", JSON.stringify(data, null, 2));
+	console.log("📊 Updating Chart with Data:", JSON.stringify(data, null, 2));
 
 	const radius = Math.min(width, height) / 2;
 	const pie = d3.pie().value(d => d.count);
 	const arc = d3.arc().innerRadius(0).outerRadius(radius);
 
-	// Update Legend
+	// ✅ **Update Legend**
 	legendData = data.map(d => ({
 		label: d.gender,
 		color: genderColors[d.gender] || "gray"
 	}));
 
-	// Clear previous chart
+	// ✅ **Clear existing chart before redrawing**
 	d3.select("#pie").selectAll("*").remove();
 
-	// Create new SVG container
+	// ✅ **Create SVG container**
 	svg = d3.select("#pie")
 		.attr("width", width)
 		.attr("height", height)
 		.append("g")
 		.attr("transform", `translate(${width / 2}, ${height / 2})`);
+
+	// ✅ **Check for empty dataset**
+	if (data.length === 0) {
+		svg.append("text")
+			.attr("text-anchor", "middle")
+			.attr("y", 10)
+			.style("font-size", "14px")
+			.style("fill", "gray")
+			.text("No Data Available");
+		return;
+	}
 
 	const pieData = pie(data);
 	const paths = svg.selectAll("path").data(pieData);
@@ -96,15 +122,14 @@ const updateChart = (data) => {
 		.append("path")
 		.attr("d", arc)
 		.attr("fill", d => genderColors[d.data.gender] || "gray")
-		.attr("stroke", "transparent")
+		.attr("stroke", "white")
 		.attr("stroke-width", 2)
-		.merge(paths)
 		.transition().duration(750)
 		.attr("d", arc);
 
 	paths.exit().remove();
 
-	// Update Legend
+	// ✅ **Update Legend**
 	const legend = d3.select("#legend").selectAll(".legend-item").data(legendData);
 
 	legend.enter()
@@ -119,7 +144,3 @@ const updateChart = (data) => {
 
 	legend.exit().remove();
 };
-<div style="display: flex; gap: 20px;">
-	<svg id="pie"></svg>
-	<div id="legend"></div>
-</div>
