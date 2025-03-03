@@ -111,18 +111,32 @@
 
 
 	function openRecommendationModal(app) {
-		if (!app) {
-			console.warn("⚠️ No valid application selected.");
-			return;
-		}
+    if (!app) {
+        console.warn("⚠️ No valid application selected.");
+        return;
+    }
 
-		// ✅ Force reactivity by first setting modal to false
-		isModalOpen.set(false);
-		setTimeout(() => {
-			selectedApplication.set(app);
-			isModalOpen.set(true);
-		}, 10);
-	}
+    console.log("📌 Attempting to Open Modal for:");
+    console.log("   - Application ID:", app.applicationID);
+    console.log("   - AI Recommendation:", app.aiRecommendation);
+    console.log("   - AI Justification:", app.aiJustification);
+
+    // ✅ Close the modal first to force a reset
+    isModalOpen.set(false);
+
+    setTimeout(() => {
+        // ✅ Make sure we're setting a fresh copy of the application
+        selectedApplication.set({ ...app });
+
+        console.log("✅ Selected Application Set:");
+        console.log("   - Application ID:", get(selectedApplication)?.applicationID);
+        console.log("   - AI Recommendation:", get(selectedApplication)?.aiRecommendation);
+        console.log("   - AI Justification:", get(selectedApplication)?.aiJustification);
+
+        isModalOpen.set(true);
+    }, 10);
+}
+
 
 	function closeRecommendationModal() {
 		isModalOpen.set(false);
