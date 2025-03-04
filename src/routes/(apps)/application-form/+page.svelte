@@ -278,20 +278,22 @@
 		: undefined;
 	// Calculate Business Growth Rate
 	$: {
-    const data = get(formData); // Get current form data
+    const revenue2023 = parseFloat($formData.revenueFor2023) || 0;
+    const revenue2024 = parseFloat($formData.revenueFor2024) || 0;
 
-    if (data.revenueFor2022 && data.revenueFor2023) {
-        const revenue2022 = parseFloat(data.revenueFor2022);
-        const revenue2023 = parseFloat(data.revenueFor2023);
-
+    if (revenue2023 > 0) {
         formData.update(data => ({
             ...data,
-            businessGrowthRate: revenue2022 > 0
-                ? (((revenue2023 - revenue2022) / revenue2022) * 100).toFixed(2) + "%" // Format as percentage
-                : "N/A"
+            businessGrowthRate: (((revenue2024 - revenue2023) / revenue2023) * 100).toFixed(2) + "%"
+        }));
+    } else {
+        formData.update(data => ({
+            ...data,
+            businessGrowthRate: "N/A"
         }));
     }
 }
+
 
 
 	// File Input Binding
