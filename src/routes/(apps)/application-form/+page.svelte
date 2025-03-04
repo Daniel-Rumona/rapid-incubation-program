@@ -69,7 +69,7 @@
 		employeesForMonth2:"",
 		employeesForMonth3:"",
 		employeesForMonth4:"",
-		validTaxPin: "",
+		taxClearance: "",
 		motivation: "",
 		challenges: "",
 		softwareAreas: {
@@ -89,7 +89,7 @@
 			"Growth Plan": [],
 			"Project Management": []
 		},
-		documents: [] // 🔹 Store file URLs here
+		documents: []
 	});
 
 	// ✅ Update fullName dynamically when firstName or lastName changes
