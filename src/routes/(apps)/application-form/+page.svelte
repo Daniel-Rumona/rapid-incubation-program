@@ -292,12 +292,8 @@
         growthRate = (((revenue2024 - revenue2023) / revenue2023) * 100).toFixed(2) + "%";
     }
 
-    formData.update(data => ({
-        ...data,
-        businessGrowthRate: growthRate
-    }));
+    formData.set({ ...$formData, businessGrowthRate: growthRate });
 }
-
 
 
 	// File Input Binding
