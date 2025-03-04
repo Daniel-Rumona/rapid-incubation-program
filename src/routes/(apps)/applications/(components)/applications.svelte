@@ -460,7 +460,7 @@ function closeRecommendationModal() {
 									<span>{$selectedApplication?.revenueFor2024}</span>
 								</li>
 								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Past Four Months Turnover </span>
+									<span class="text-muted-foreground">Total Past Four Months Turnover </span>
 									<span> {(
 										(parseFloat($selectedApplication?.revenueForMonth1 || "0")) +
 										(parseFloat($selectedApplication?.revenueForMonth2 || "0")) +
@@ -469,7 +469,7 @@ function closeRecommendationModal() {
 									).toFixed(2)}</span>
 								</li>
 								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Number Of Workers</span>
+									<span class="text-muted-foreground">Last Year Number Of Workers</span>
 									<span>{$selectedApplication?.employeesFor2024}</span>
 								</li>
 
