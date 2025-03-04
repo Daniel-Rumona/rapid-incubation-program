@@ -52,10 +52,9 @@
 		socialMediaOtherAddress:"",
 		natureOfBusiness: "",
 		businessDescription: "",
-		businessNumberOfEmployees: "",
 		businessGrowthRate: "",
 		postalCode: "",
-		lastFourMonthsTurnover: "",
+		selectedMonths:[],
 		revenueFor2022:"",
 		revenueFor2023:"",
 		revenueFor2024:"",
@@ -70,10 +69,7 @@
 		employeesForMonth2:"",
 		employeesForMonth3:"",
 		employeesForMonth4:"",
-		whereDidYouHearAboutUs: "",
 		validTaxPin: "",
-		taxCompliance: "",
-		bbbbeeCertificate: "",
 		motivation: "",
 		challenges: "",
 		softwareAreas: {
@@ -145,32 +141,38 @@
 	};
 
 	onMount(async () => {
-		const user = auth.currentUser;
+    try {
+        // 🔹 Wait for Firebase Auth to initialize and retrieve user ID
+        const userId = await getUserID();
+        
+        if (userId) {
+            console.log("✅ User authenticated with UID:", userId);
+            await fetchApplicationData(userId);
+        } else {
+            console.log("⚠️ No authenticated user found.");
+        }
 
-		// 🔹 Extract program details from URL parameters
-		const urlParams = new URLSearchParams(window.location.search);
-		const programID = urlParams.get("programID");
-		const programName = urlParams.get("programName");
-		const programCategory = urlParams.get("programCategory");
-		const lastFourMonths = getLastFourMonths();
+        // 🔹 Extract program details from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const programID = urlParams.get("programID");
+        const programName = urlParams.get("programName");
+        const programCategory = urlParams.get("programCategory");
+        const lastFourMonths = getLastFourMonths();
 
-		// ✅ Update form data with program details from URL
-		formData.update(data => ({
-			...data,
-  			selectedMonths: lastFourMonths,
-			programID: programID || "",
-			programName: programName || "",
-			programCategory: programCategory || ""
-		}));
+        // ✅ Update form data with program details from URL
+        formData.update(data => ({
+            ...data,
+            selectedMonths: lastFourMonths,
+            programID: programID || "",
+            programName: programName || "",
+            programCategory: programCategory || ""
+        }));
 
-		// 🔹 Fetch user data from Firestore if logged in
-		if (user) {
-			const userId = await getUserID();
-			if (userId) {
-				await fetchApplicationData(userId);
-			}
-		}
-	});
+    } catch (error) {
+        console.error("🔥 Error in onMount:", error);
+    }
+});
+
 
 	// Participation Options
 	const participationOptions = [
@@ -275,14 +277,22 @@
 		}
 		: undefined;
 	// Calculate Business Growth Rate
-	$: formData.update(data => {
-		if (data.revenueFor2022 && data.revenueFor2023) {
-			const revenue2022 = parseFloat(data.revenueFor2022);
-			const revenue2023 = parseFloat(data.revenueFor2023);
-			data.businessGrowthRate = revenue2022 > 0 ? ((revenue2023 / revenue2022) - 1).toFixed(2) : "N/A";
-		}
-		return data;
-	});
+	$: {
+    const data = get(formData); // Get current form data
+
+    if (data.revenueFor2022 && data.revenueFor2023) {
+        const revenue2022 = parseFloat(data.revenueFor2022);
+        const revenue2023 = parseFloat(data.revenueFor2023);
+
+        formData.update(data => ({
+            ...data,
+            businessGrowthRate: revenue2022 > 0
+                ? (((revenue2023 - revenue2022) / revenue2022) * 100).toFixed(2) + "%" // Format as percentage
+                : "N/A"
+        }));
+    }
+}
+
 
 	// File Input Binding
 	let selectedFiles: File[] = [];
@@ -347,10 +357,20 @@ function getLastFourMonths(): string[] {
     }
 };
 
-const getUserID = () => {
-    const user = auth.currentUser;
-    return user ? user.uid : null; // ✅ Directly return Firebase Auth UID
+const getUserID = async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+        if (auth.currentUser) {
+            resolve(auth.currentUser.uid); // ✅ User is already logged in
+        } else {
+            // ✅ Listen for authentication state changes
+            const unsubscribe = auth.onAuthStateChanged((user) => {
+                resolve(user ? user.uid : null);
+                unsubscribe(); // ✅ Stop listening after getting user state
+            });
+        }
+    });
 };
+
 
 	const submitToAI = async (applicationData) => {
 		try {
@@ -487,12 +507,17 @@ const getUserID = () => {
 
 			// ✅ Check word count if the field is in minWordCount
 			if (minWordCount[field] && typeof value === "string") {
-				const wordCount = countWords(value);
-				if (wordCount < minWordCount[field]) {
-					isValid = false;
-					wordCountErrors.push(`${field} must be at least ${minWordCount[field]} words (currently ${wordCount} words)`);
-				}
-			}
+    const wordCount = countWords(value);
+    if (wordCount < minWordCount[field]) {
+        isValid = false;
+        wordCountErrors.push(
+            `${fieldLabels[field] || field} must be at least ${minWordCount[field]} words. You have written ${wordCount} words.`
+        );
+        // ✅ Force focus back to the field
+        setTimeout(() => document.getElementById(field)?.focus(), 50);
+    }
+}
+
 		});
 
 		const fieldLabels = {
@@ -529,8 +554,6 @@ const getUserID = () => {
 			employeesForMonth4: "Employees for Month 4",
 			whereDidYouHearAboutUs: "Where Did You Hear About Us?",
 			validTaxPin: "Valid Tax Pin?",
-			taxCompliance: "Tax Compliance",
-			bbbbeeCertificate: "BBBEE Certificate",
 			documents: "Required Documents"
 		};
 
@@ -558,10 +581,28 @@ const getUserID = () => {
 	}
 
 	function nextStep() {
-		if (!validateStep()) return; // Prevent moving to next step if validation fails
+	if (!validateStep()) return; // Stops navigation if validation fails
 
-		currentStep.update((step) => Math.min(step + 1, steps.length - 1));
+	// Check if businessDescription or motivation has the required word count
+	const formValues = get(formData);
+	const businessDescWords = countWords(formValues.businessDescription);
+	const motivationWords = countWords(formValues.motivation);
+
+	if (get(currentStep) === 1 && businessDescWords < 100) {
+		alert(`❌ Your business description must be at least 100 words. You have written ${businessDescWords} words.`);
+		document.getElementById("business-description")?.focus();
+		return;
 	}
+
+	if (get(currentStep) === 3 && motivationWords < 100) {
+		alert(`❌ Your motivation must be at least 100 words. You have written ${motivationWords} words.`);
+		document.getElementById("motivation")?.focus();
+		return;
+	}
+
+	currentStep.update((step) => Math.min(step + 1, steps.length - 1));
+}
+
 	function prevStep() {
 		currentStep.update((step) => Math.max(step - 1, 0));
 	}
@@ -574,6 +615,22 @@ const getUserID = () => {
 	};
 
 const submitForm = async () => {
+// Prevent submission if word count is not met
+	const formValues = get(formData);
+	const businessDescWords = countWords(formValues.businessDescription);
+	const motivationWords = countWords(formValues.motivation);
+
+	if (businessDescWords < 100) {
+		alert(`❌ Your business description must be at least 100 words. You have written ${businessDescWords} words.`);
+		document.getElementById("business-description")?.focus();
+		return;
+	}
+
+	if (motivationWords < 100) {
+		alert(`❌ Your motivation must be at least 100 words. You have written ${motivationWords} words.`);
+		document.getElementById("motivation")?.focus();
+		return;
+	}
     try {
         console.log("🚀 Starting form submission...");
         showModal.set(true);
@@ -896,17 +953,23 @@ const submitForm = async () => {
 							placeholder="Industry/Type of Services"
 							class="w-full"
 						/>
-						<Label for="business-description">Briefly describe your business (Min: 100 words)</Label>
 						<Textarea
-							id="business-description"
-							bind:value={$formData.businessDescription}
-							placeholder="Describe your business"
-							on:input={() => minWordCount.businessDescription = countWords($formData.businessDescription)}
-							class="w-full"
-						/>
-						<p class="word-count {countWords($formData.businessDescription) < 100 ? 'warning' : ''}">
-							Word count: {countWords($formData.businessDescription)} / 100
-						</p>
+	id="business-description"
+	bind:value={$formData.businessDescription}
+	placeholder="Describe your business (Min: 100 words)"
+	on:blur={() => {
+		const wordCount = countWords($formData.businessDescription);
+		if (wordCount < 100) {
+			alert(`❌ Your business description must be at least 100 words. You have written ${wordCount} words.`);
+			document.getElementById("business-description")?.focus();
+		}
+	}}
+	class="w-full"
+/>
+<p class="word-count {countWords($formData.businessDescription) < 100 ? 'warning' : ''}">
+	Word count: {countWords($formData.businessDescription)} / 100
+</p>
+
 						<Label for="years-of-trading">Number of years of trading</Label>
 						<Input
 							id="years-of-trading"
@@ -1127,13 +1190,22 @@ type="number"
 					<Card.Content class="grid gap-6">
 						<Label for="motivation">Why do you want to join?</Label>
 						<Textarea
-							id="motivation"
-							bind:value={$formData.motivation}
-							placeholder="Explain your motivation"
-						/>
-						<p class="word-count {countWords($formData.motivation) < 100 ? 'warning' : ''}">
-							Word count: {countWords($formData.motivation)} / 100
-						</p>
+	id="motivation"
+	bind:value={$formData.motivation}
+	placeholder="Explain your motivation (min 100 words)"
+	on:blur={() => {
+		const wordCount = countWords($formData.motivation);
+		if (wordCount < 100) {
+			alert(`❌ Your motivation must be at least 100 words. You have written ${wordCount} words.`);
+			document.getElementById("motivation")?.focus();
+		}
+	}}
+	class="w-full"
+/>
+<p class="word-count {countWords($formData.motivation) < 100 ? 'warning' : ''}">
+	Word count: {countWords($formData.motivation)} / 100
+</p>
+
 					</Card.Content>
 					<Card.Content class="grid gap-6">
 						<Label for="intervention-selection">What form of intervention do you need?</Label>
