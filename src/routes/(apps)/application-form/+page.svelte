@@ -699,10 +699,7 @@ const submitForm = async () => {
 
         if (form.businessAddressProvince !== "KwaZulu-Natal") {
             isRejected = true;
-            rejectionReason = "Applicant is located outside KwaZulu-Natal.";
-        } else if (!["Durban", "Pinetown", "Umhlanga", "Amanzimtoti"].includes(form.businessAddressCity)) {
-            isRejected = true;
-            rejectionReason = "Applicant is not in Durban or surrounding areas.";
+            rejectionReason = "Applicant is located outside KwaZulu-Natal."; 
         } else if (form.areYouDUTStudent === "Yes") {
             isRejected = true;
             rejectionReason = "Applicant is a current DUT student. Referred to InnoBiz.";
