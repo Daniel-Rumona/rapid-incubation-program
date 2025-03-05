@@ -477,7 +477,17 @@ const getUserID = async (): Promise<string | null> => {
 		2: ["revenueFor2022", "revenueFor2023", "revenueFor2024", "revenueForMonth1","revenueForMonth2","revenueForMonth3","revenueForMonth4", "employeesFor2022", "employeesFor2023","employeesFor2024",
 			"employeesForMonth1","employeesForMonth2","employeesForMonth3","employeesForMonth4", "validTaxPin"],
 		3: ["motivation"],
+		4: ["documents"]	
 	};
+const requiredDocuments = [
+    "cipc-upload",
+    "bbbbee-certificate",
+    "company-profile-upload",
+    "id-copy",
+    "tax-clearance-upload",
+    "bank-statement-upload"
+];
+
 
 	// Navigation Functions
 	function countWords(text: string) {
@@ -582,29 +592,30 @@ const getUserID = async (): Promise<string | null> => {
 		return isValid;
 	}
 
-	function nextStep() {
-	if (!validateStep()) return; // Stops navigation if validation fails
+	let validationError = writable(false); // Track if an error occurred
 
-	// Check if businessDescription or motivation has the required word count
+	function nextStep() {
 	const formValues = get(formData);
 	const businessDescWords = countWords(formValues.businessDescription);
 	const motivationWords = countWords(formValues.motivation);
 
+	// Prevent Navigation
 	if (get(currentStep) === 1 && businessDescWords < 100) {
-		alert(`❌ Your business description must be at least 100 words. You have written ${businessDescWords} words.`);
-		document.getElementById("business-description")?.focus();
+		validationError.set(true);
 		return;
 	}
 
 	if (get(currentStep) === 3 && motivationWords < 100) {
-		alert(`❌ Your motivation must be at least 100 words. You have written ${motivationWords} words.`);
-		document.getElementById("motivation")?.focus();
+		validationError.set(true);
 		return;
 	}
 
+	// ✅ Move to the next step only if validation passes
+	validationError.set(false);
 	currentStep.update((step) => Math.min(step + 1, steps.length - 1));
 }
 
+	
 	function prevStep() {
 		currentStep.update((step) => Math.max(step - 1, 0));
 	}
@@ -794,6 +805,7 @@ const submitForm = async () => {
 <div class="flex flex-col items-center w-full px-4 sm:px-6 md:px-8">
 	<Card.Header class="text-center">
 		<Card.Title class="text-xl font-semibold">DUT CSE Rapid Incubation Programm Application</Card.Title>
+		<Card.Description>DUTCSERI collects and processes your application information to assess your suitability for our incubation program. We handle your data responsibly and in accordance with POPIA. By applying, you consent to this processing. For more details, please request our full POPIA policy</Card.Description>
 	</Card.Header>
 
 	<!-- Step Container -->
@@ -955,15 +967,17 @@ const submitForm = async () => {
 							placeholder="Industry/Type of Services"
 							class="w-full"
 						/>
-						<Textarea
+						<!-- Business Description -->
+<Textarea
 	id="business-description"
 	bind:value={$formData.businessDescription}
 	placeholder="Describe your business (Min: 100 words)"
 	on:blur={() => {
 		const wordCount = countWords($formData.businessDescription);
 		if (wordCount < 100) {
-			alert(`❌ Your business description must be at least 100 words. You have written ${wordCount} words.`);
-			document.getElementById("business-description")?.focus();
+			validationError.set(true);
+		} else {
+			validationError.set(false);
 		}
 	}}
 	class="w-full"
@@ -971,6 +985,9 @@ const submitForm = async () => {
 <p class="word-count {countWords($formData.businessDescription) < 100 ? 'warning' : ''}">
 	Word count: {countWords($formData.businessDescription)} / 100
 </p>
+{#if validationError && countWords($formData.businessDescription) < 100}
+	<p class="text-red-500">❌ Business description must be at least 100 words.</p>
+{/if}
 
 						<Label for="years-of-trading">Number of years of trading</Label>
 						<Input
@@ -1190,16 +1207,17 @@ type="number"
 						<Card.Title class="text-lg font-medium">Step 4: Motivation & Challenges</Card.Title>
 					</Card.Header>
 					<Card.Content class="grid gap-6">
-						<Label for="motivation">Why do you want to join?</Label>
-						<Textarea
+						<!-- Motivation -->
+<Textarea
 	id="motivation"
 	bind:value={$formData.motivation}
 	placeholder="Explain your motivation (min 100 words)"
 	on:blur={() => {
 		const wordCount = countWords($formData.motivation);
 		if (wordCount < 100) {
-			alert(`❌ Your motivation must be at least 100 words. You have written ${wordCount} words.`);
-			document.getElementById("motivation")?.focus();
+			validationError.set(true);
+		} else {
+			validationError.set(false);
 		}
 	}}
 	class="w-full"
@@ -1207,6 +1225,10 @@ type="number"
 <p class="word-count {countWords($formData.motivation) < 100 ? 'warning' : ''}">
 	Word count: {countWords($formData.motivation)} / 100
 </p>
+{#if validationError && countWords($formData.motivation) < 100}
+	<p class="text-red-500">❌ Motivation must be at least 100 words.</p>
+{/if}
+
 
 					</Card.Content>
 					<Card.Content class="grid gap-6">
