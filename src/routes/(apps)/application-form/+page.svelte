@@ -258,10 +258,10 @@
 		}
 		: undefined;
 
-	$: selectedValidTaxPin = $formData.validTaxPin
+	$: selectedValidTaxPin = $formData.taxClearance
 		? {
-			label: $formData.validTaxPin,
-			value: $formData.validTaxPin
+			label: $formData.taxClearance,
+			value: $formData.taxClearance
 		}
 		: undefined;
 	$: selectedBusinessAddressLocation = $formData.businessAddressLocation
@@ -1172,7 +1172,7 @@ type="number"
 							selected={selectedValidTaxPin}
 							onSelectedChange={(v) => {
     if (v) {
-      $formData.validTaxPin = v.value;
+      $formData.taxClearance = v.value;
     }
   }}
 						>
@@ -1186,7 +1186,7 @@ type="number"
 							</Select.Content>
 						</Select.Root>
 
-						<input hidden bind:value={$formData.validTaxPin} name="validTaxPin" />
+						<input hidden bind:value={$formData.taxClearance} name="validTaxPin" />
 
 					</Card.Content>
 					<Card.Footer class="flex justify-between">
