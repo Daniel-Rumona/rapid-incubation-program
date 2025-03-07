@@ -466,7 +466,7 @@ function closeRecommendationModal() {
 										(parseFloat($selectedApplication?.revenueForMonth2 || "0")) +
 										(parseFloat($selectedApplication?.revenueForMonth3 || "0")) +
 										(parseFloat($selectedApplication?.revenueForMonth4 || "0"))
-									).toFixed(2)}</span>
+									).toFixed(0)}</span>
 								</li>
 								<li class="flex items-center justify-between">
 									<span class="text-muted-foreground">Last Year Number Of Workers</span>
