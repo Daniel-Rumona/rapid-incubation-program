@@ -710,7 +710,7 @@ const submitForm = async () => {
         // ✅ **Only send to AI if NOT rejected**
         if (!isRejected) {
             console.log("🤖 Sending application to AI for evaluation...");
-            const applicationData = 
+            const applicationData = {
                 company_name: form.businessName,
                 company_registration_no: form.registrationNumber,
                 no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
@@ -720,6 +720,7 @@ const submitForm = async () => {
                 business_description: form.businessDescription,
                 tax_clearance: form.taxClearance,
                 initial_support: form.motivation,
+																programme: form.programCategory
             };
 
             aiResponse = await submitToAI(applicationData);
