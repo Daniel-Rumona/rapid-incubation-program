@@ -715,6 +715,7 @@ const submitForm = async () => {
                 company_registration_no: form.registrationNumber,
                 no_of_years_trading: parseInt(form.yearsOfTrading || "0"),
                 sector: form.natureOfBusiness,
+																dut_student: form.areYouDUTStudent,
                 current_number_of_employees: parseInt(form.employeesFor2024 || "0"),
                 current_business_turnover: parseInt(form.revenueFor2024 || "0"),
                 business_description: form.businessDescription,
