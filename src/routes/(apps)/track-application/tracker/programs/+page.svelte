@@ -43,6 +43,10 @@
 	const closeModal = () => {
 		showModal.set(false);
 	};
+onMount(() => {
+	console.log("🚀 Mounted - checking Firebase auth status:", auth.currentUser);
+});
+
 	// Handle Logout
 	const handleLogout = async () => {
 		try {
