@@ -131,7 +131,14 @@ onMount(() => {
 	// ✅ Fetch Programms & Cross-Reference Applications
 	async function fetchProgramms() {
 		try {
-			console.log("📌 [FETCH STARTED] Fetching programs from Firestore...");
+			  if (!auth.currentUser) {
+      console.warn("⛔ [fetchProgramms] No auth.currentUser!");
+      return;
+    }
+
+    const token = await auth.currentUser.getIdTokenResult();
+    console.log("👤 [fetchProgramms] User:", auth.currentUser.email);
+    console.log("🔐 [fetchProgramms] Token claims:", token.claims);
 
 			const programsRef = collection(db, "Programs");
 			const querySnapshot = await getDocs(programsRef);
