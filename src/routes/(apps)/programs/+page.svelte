@@ -53,24 +53,27 @@
 		}
 	}
 
-	onMount(async () => {
-		console.log("🔹 Component mounted. Checking authentication...");
-		await fetchPrograms();
-		data.subscribe((value) => {
-			console.log("✅ Programs in UI:", value);
-		});
+	onMount(() => {
+	console.log("🔹 Component mounted. Waiting for Firebase auth...");
 
-		onAuthStateChanged(auth, async (user) => {
-			console.log("🔹 Auth state changed:", user);
-			if (user && user.email) {
-				console.log("✅ Authenticated user detected:", user.email);
-				await fetchUserData(user.email);
-			} else {
-				console.warn("⚠️ No authenticated user found.");
-				loggedInUser.set(null);
-			}
-		});
+	onAuthStateChanged(auth, async (user) => {
+		console.log("🔹 Auth state changed:", user);
+
+		if (user && user.email) {
+			console.log("✅ Authenticated user detected:", user.email);
+
+			// 🔁 Refresh token to ensure fresh claims (especially for admin access)
+			await user.getIdToken(true);
+
+			await fetchUserData(user.email);
+			await fetchPrograms(); // ✅ Now fetch programs AFTER auth is ready
+		} else {
+			console.warn("⚠️ No authenticated user found.");
+			loggedInUser.set(null);
+		}
 	});
+});
+
 </script>
 
 <div class="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
