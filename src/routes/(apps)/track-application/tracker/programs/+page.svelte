@@ -202,6 +202,7 @@
 			}
 
 			loggedInUser.set({ fullName, email: user.email });
+			await user.getIdToken(true); // refresh token
 			await fetchProgramms();
 		} else {
 			loggedInUser.set(null);
