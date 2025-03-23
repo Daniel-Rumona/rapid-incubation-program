@@ -45,19 +45,16 @@
 		await user.getIdToken(true);
 
 		// 🔎 Query Firestore for user data
-		const usersCollection = collection(db, "Users");
-		const userQuery = query(usersCollection, where("userEmail", "==", email));
-		const querySnapshot = await getDocs(userQuery);
+		const userDocRef = doc(db, "Users", user.uid);
+const userDocSnap = await getDoc(userDocRef);
 
-		if (!querySnapshot.empty) {
-			const userDoc = querySnapshot.docs[0];
-			const userRole = userDoc.data().userRole || "user";
+if (userDocSnap.exists()) {
+	const userRole = userDocSnap.data().userRole || "user";
+	goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
+} else {
+	errorMessage = "User data not found. Contact support.";
+}
 
-			// ✅ Redirect based on role
-			goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
-		} else {
-			errorMessage = "User data not found. Contact support.";
-		}
 	} catch (error) {
 		console.error("🔥 Firebase Auth Error:", error);
 		errorMessage = "Invalid credentials. Please try again.";
