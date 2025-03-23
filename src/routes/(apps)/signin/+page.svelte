@@ -33,34 +33,38 @@
 	let errorMessage = "";
 
 	const handleLogin = async () => {
-		isLoading.set(true);
-		errorMessage = ""; // Reset error message
+	isLoading.set(true);
+	errorMessage = "";
 
-		try {
-			const userCredential = await signInWithEmailAndPassword(auth, email, password);
+	try {
+		// 🔐 Sign in the user
+		const userCredential = await signInWithEmailAndPassword(auth, email, password);
+		const user = userCredential.user;
 
-			// 🔹 Query Firestore for user data
-			const usersCollection = collection(db, "Users");
-			const userQuery = query(usersCollection, where("userEmail", "==", email));
-			const querySnapshot = await getDocs(userQuery);
+		// 🔄 Force refresh the token to get latest claims (important!)
+		await user.getIdToken(true);
 
-			if (!querySnapshot.empty) {
-				const userDoc = querySnapshot.docs[0];
-				const userRole = userDoc.data().userRole || "user";
+		// 🔎 Query Firestore for user data
+		const usersCollection = collection(db, "Users");
+		const userQuery = query(usersCollection, where("userEmail", "==", email));
+		const querySnapshot = await getDocs(userQuery);
 
-				// 🔹 Redirect based on user role
-				goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
-			} else {
-				errorMessage = "User data not found. Contact support.";
-			}
+		if (!querySnapshot.empty) {
+			const userDoc = querySnapshot.docs[0];
+			const userRole = userDoc.data().userRole || "user";
 
-		} catch (error) {
-			console.error("🔥 Firebase Auth Error:", error);
-			errorMessage = "Invalid credentials. Please try again.";
-		} finally {
-			isLoading.set(false);
+			// ✅ Redirect based on role
+			goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
+		} else {
+			errorMessage = "User data not found. Contact support.";
 		}
-	};
+	} catch (error) {
+		console.error("🔥 Firebase Auth Error:", error);
+		errorMessage = "Invalid credentials. Please try again.";
+	} finally {
+		isLoading.set(false);
+	}
+};
 </script>
 
 <!-- ✅ Main Login Container -->
