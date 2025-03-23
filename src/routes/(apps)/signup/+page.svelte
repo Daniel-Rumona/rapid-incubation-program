@@ -51,71 +51,68 @@
 		"snelisiweh@dut.ac.za"
 	];
 
-	const handleSignup = async () => {
-		isLoading.set(true);
-		errorMessage.set("");
+const handleSignup = async () => {
+	isLoading.set(true);
+	errorMessage.set("");
 
-		// Check if passwords match
-		if (password !== confirmPassword) {
-			errorMessage.set("Passwords do not match!");
-			isLoading.set(false);
-			return;
-		}
+	if (password !== confirmPassword) {
+		errorMessage.set("Passwords do not match!");
+		isLoading.set(false);
+		return;
+	}
 
-		try {
-			// ✅ Create User in Firebase Authentication
-			const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-			const user = userCredential.user;
+	try {
+		const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+		const user = userCredential.user;
 
-			// ✅ Determine User Role
-			const userRole = adminEmails.includes(email) ? "admin" : "user"; // Assign role based on email
+		// 🔁 Force-refresh token to apply rules and claims immediately
+		await user.getIdToken(true);
 
-			// ✅ Save User Details in Firestore
-			const userRef = doc(db, "Users", user.uid); 
-			await setDoc(userRef, {
-					userEmail: user.email,
-					userFullName: `${firstName} ${lastName}`,
-					userRole: userRole,
-					createdAt: new Date(),
-					});
-			// ✅ Clear Form Fields After Signup
-			firstName = "";
-			lastName = "";
-			email = "";
-			password = "";
-			confirmPassword = "";
+		const userRole = adminEmails.includes(email) ? "admin" : "user";
 
-			// ✅ Redirect based on user role
-			goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
+		const userRef = doc(db, "Users", user.uid);
+		await setDoc(userRef, {
+			userEmail: user.email,
+			userFullName: `${firstName} ${lastName}`,
+			userRole,
+			createdAt: new Date(),
+		});
 
-		} catch (error) {
-			console.error("🔥 Firebase Auth Error:", error);
-			errorMessage.set(authErrors[error.code] || "An unknown error occurred. Please try again.");
-		} finally {
-			isLoading.set(false);
-		}
-	};
+		// Reset form & redirect
+		firstName = lastName = email = password = confirmPassword = "";
+
+		goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
+
+	} catch (error) {
+		console.error("🔥 Firebase Auth Error:", error);
+		errorMessage.set(authErrors[error.code] || "An unknown error occurred. Please try again.");
+	} finally {
+		isLoading.set(false);
+	}
+};
+
 
 	// ✅ Handle Google Signup
-	const handleGoogleSignup = async () => {
+const handleGoogleSignup = async () => {
 	const provider = new GoogleAuthProvider();
+
 	try {
 		const result = await signInWithPopup(auth, provider);
 		const user = result.user;
 
-		// ✅ Check if the Google user is an admin
+		// 🔁 Refresh token for immediate Firestore access
+		await user.getIdToken(true);
+
 		const userRole = adminEmails.includes(user.email!) ? "admin" : "user";
 
-		// ✅ Store user using UID in Firestore
 		const userRef = doc(db, "Users", user.uid);
 		await setDoc(userRef, {
 			userEmail: user.email,
 			userFullName: user.displayName,
-			userRole: userRole, // ✅ Assign the correct role dynamically
+			userRole,
 			createdAt: new Date(),
 		}, { merge: true });
 
-		// ✅ Redirect based on user role
 		goto(userRole === "admin" ? "/dashboard" : "/track-application/tracker");
 
 	} catch (error) {
@@ -123,6 +120,7 @@
 		errorMessage.set("Google sign-up failed. Try again.");
 	}
 };
+
 </script>
 
 <!-- ✅ Signup Page Layout -->
