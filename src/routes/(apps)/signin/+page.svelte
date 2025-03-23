@@ -2,7 +2,7 @@
 	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
 	import { auth, db, signInWithEmailAndPassword } from "$lib/firebase";
-	import { query, where, getDocs, collection } from "firebase/firestore";
+	import { doc, getDoc, query, where, getDocs, collection } from "firebase/firestore";
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
