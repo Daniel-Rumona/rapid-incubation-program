@@ -191,7 +191,9 @@
 
 	// ✅ Run on Page Load
 	onAuthStateChanged(auth, async (user) => {
+		console.log("🔍 onAuthStateChanged triggered:", user);
 		if (user?.email) {
+			console.log("📬 Email available:", user.email);
 			let fullName = user.displayName || "User"; // Default if displayName is missing
 			const usersRef = collection(db, "Users");
 			const q = query(usersRef, where("userEmail", "==", user.email));
@@ -205,6 +207,7 @@
 			await user.getIdToken(true); // refresh token
 			await fetchProgramms();
 		} else {
+			console.warn("⚠️ No authenticated user found.");
 			loggedInUser.set(null);
 		}
 	});
