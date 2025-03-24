@@ -7,8 +7,6 @@ export const applications = writable([]);
 
 export const fetchAllApplications = async () => {
 	try {
-		console.log("🔍 Fetching all applications...");
-
 		const usersRef = collection(db, "Users");
 		const usersSnapshot = await getDocs(usersRef);
 
@@ -27,7 +25,6 @@ export const fetchAllApplications = async () => {
 
 			applicationsSnapshot.forEach((appDoc) => {
 				const appData = appDoc.data();
-				console.log(`✅ Found Application for ${userData.userFullName}:`, appData);
 
 				allApplications.push({
 					...appData,
@@ -44,7 +41,6 @@ export const fetchAllApplications = async () => {
 
 		// 🔹 Store in Writable Store
 		applications.set(allApplications);
-		console.log("🎉 Applications Loaded:", allApplications);
 	} catch (error) {
 		console.error("🔥 Error Fetching Applications:", error);
 	}
