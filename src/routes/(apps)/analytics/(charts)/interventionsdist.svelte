@@ -158,7 +158,7 @@ g.selectAll(".bar")
 		<span class="ml-3 text-muted-foreground">Loading interventions...</span>
 	</div>
 {:else}
-	<svg id="chart"></svg>
+	<svg id="chart" style="min-height: 400px; width: 100%; display: block;"></svg>
 <div id="tooltip" style="
 	position: absolute;
 	pointer-events: none;
