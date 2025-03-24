@@ -1,90 +1,156 @@
 <script>
+	import { collection, getDocs } from "firebase/firestore";
+	import { db } from "$lib/firebase";
+	import { writable } from "svelte/store";
+
+	let isLoading = writable(true);
+	let interventionData = [];
+
 	import { onMount } from "svelte";
 	import * as d3 from "d3";
 
 	let width = 1000, height = 400;
 	let svg;
+function renderChart(data) {
+const tooltip = d3.select("#tooltip");
 
-	// ✅ Mock Data: Interventions Distribution
-	const data = [
-		{ intervention: "Financial Support", value: 120 },
-		{ intervention: "Market Access", value: 95 },
-		{ intervention: "Technical Training", value: 80 },
-		{ intervention: "Regulatory Compliance", value: 50 },
-		{ intervention: "Infrastructure Support", value: 130 },
-		{ intervention: "Mentorship & Coaching", value: 60 }
-	];
+	// Clear previous chart (important if re-rendered)
+	d3.select("#chart").selectAll("*").remove();
+
+	const margin = { top: 20, right: 30, bottom: 100, left: 50 };
+	const chartWidth = width - margin.left - margin.right;
+	const chartHeight = height - margin.top - margin.bottom;
+
+	svg = d3.select("#chart")
+		.attr("width", width)
+		.attr("height", height);
+
+	const g = svg.append("g")
+		.attr("transform", `translate(${margin.left},${margin.top})`);
+
+	const xScale = d3.scaleBand()
+		.domain(data.map(d => d.intervention))
+		.range([0, chartWidth])
+		.padding(0.4);
+
+	const yScale = d3.scaleLinear()
+		.domain([0, d3.max(data, d => d.value)])
+		.range([chartHeight, 0]);
 
 	const colorScale = d3.scaleOrdinal()
 		.domain(data.map(d => d.intervention))
-		.range(["#4CAF50", "#FF9800", "#2196F3", "#E91E63", "#9C27B0", "#FFC107"]); // Different colors for interventions
+		.range(d3.schemeTableau10);
 
-	onMount(() => {
-		// ✅ Set up SVG
-		svg = d3.select("#chart")
-			.attr("width", width)
-			.attr("height", height);
+	// Bars
+	// Bars
+g.selectAll(".bar")
+	.data(data)
+	.enter()
+	.append("rect")
+	.attr("class", "bar")
+	.attr("x", d => xScale(d.intervention))
+	.attr("y", d => yScale(d.value))
+	.attr("width", xScale.bandwidth())
+	.attr("height", d => chartHeight - yScale(d.value))
+	.attr("rx", 4)
+	.attr("fill", d => colorScale(d.intervention))
+	.on("mouseover", function (event, d) {
+	d3.select(this).attr("opacity", 0.8);
+	tooltip
+		.style("display", "block")
+		.style("opacity", 1)
+		.html(`<strong>${d.intervention}</strong>: ${d.value}`);
+})
 
-		const margin = { top: 20, right: 30, bottom: 50, left: 50 };
-		const chartWidth = width - margin.left - margin.right;
-		const chartHeight = height - margin.top - margin.bottom;
+	.on("mousemove", function (event) {
+		tooltip
+			.style("left", event.pageX + 10 + "px")
+			.style("top", event.pageY - 28 + "px");
+	})
+	.on("mouseout", function () {
+	d3.select(this).attr("opacity", 1);
+	tooltip
+		.style("opacity", 0)
+		.style("display", "none");
+});
 
-		const g = svg.append("g")
-			.attr("transform", `translate(${margin.left},${margin.top})`);
 
-		// ✅ Scales
-		const xScale = d3.scaleBand()
-			.domain(data.map(d => d.intervention))
-			.range([0, chartWidth])
-			.padding(0.4); // Adds spacing between bars
+	// Y Axis
+	g.append("g").call(d3.axisLeft(yScale).ticks(5));
 
-		const yScale = d3.scaleLinear()
-			.domain([0, d3.max(data, d => d.value)])
-			.range([chartHeight, 0]);
+	// X Axis (rotated labels)
+	g.append("g")
+		.attr("transform", `translate(0, ${chartHeight})`)
+		.call(d3.axisBottom(xScale))
+		.selectAll("text")
+		.attr("transform", "rotate(-40)")
+		.style("text-anchor", "end");
+}
 
-		// ✅ Bars with Colors & Rounded Edges
-		g.selectAll(".bar")
-			.data(data)
-			.enter()
-			.append("rect")
-			.attr("class", "bar")
-			.attr("x", d => xScale(d.intervention))
-			.attr("y", d => yScale(d.value))
-			.attr("width", xScale.bandwidth())
-			.attr("height", d => chartHeight - yScale(d.value))
-			.attr("rx", 5) // Rounded corners
-			.attr("fill", d => colorScale(d.intervention))
-			.on("mouseover", function (event, d) { d3.select(this).attr("opacity", 0.8); })
-			.on("mouseout", function (event, d) { d3.select(this).attr("opacity", 1); });
 
-		// ✅ Y Axis
-		g.append("g")
-			.call(d3.axisLeft(yScale).ticks(5));
+	onMount(async () => {
+	isLoading.set(true);
 
-		// ✅ Legend
-		const legend = svg.append("g")
-			.attr("transform", `translate(${width - 120}, ${margin.top})`); // Adjust this value
+	const usersRef = collection(db, "Users");
+	const usersSnapshot = await getDocs(usersRef);
+	const interventionCounts = {};
 
-		legend.selectAll("rect")
-			.data(data)
-			.enter()
-			.append("rect")
-			.attr("x", 0)
-			.attr("y", (d, i) => i * 20)
-			.attr("width", 12)
-			.attr("height", 12)
-			.attr("fill", d => colorScale(d.intervention));
+	for (const userDoc of usersSnapshot.docs) {
+		const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+		const appsSnapshot = await getDocs(applicationsRef);
 
-		legend.selectAll("text")
-			.data(data)
-			.enter()
-			.append("text")
-			.attr("x", 20)
-			.attr("y", (d, i) => i * 20 + 10)
-			.attr("font-size", "12px")
-			.attr("fill", "#333")
-			.text(d => d.intervention);
-	});
+		for (const appDoc of appsSnapshot.docs) {
+			const appData = appDoc.data();
+			const interventions = appData.interventions;
+
+			if (interventions && typeof interventions === 'object') {
+				for (const [category, subItems] of Object.entries(interventions)) {
+					if (Array.isArray(subItems)) {
+						for (const sub of subItems) {
+							const key = sub.trim();
+							interventionCounts[key] = (interventionCounts[key] || 0) + 1;
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	interventionData = Object.entries(interventionCounts).map(([intervention, value]) => ({
+		intervention,
+		value
+	}));
+interventionData.sort((a, b) => b.value - a.value);
+	renderChart(interventionData);
+	isLoading.set(false);
+});
+
 </script>
 
-<svg id="chart"></svg>
+{#if $isLoading}
+	<div class="flex items-center justify-center min-h-[300px] w-full">
+		<svg class="animate-spin h-8 w-8 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+		</svg>
+		<span class="ml-3 text-muted-foreground">Loading interventions...</span>
+	</div>
+{:else}
+	<svg id="chart"></svg>
+<div id="tooltip" style="
+	position: absolute;
+	pointer-events: none;
+	background-color: rgba(0, 0, 0, 0.75);
+	color: white;
+	padding: 6px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	display: none;
+	z-index: 999;
+transition: opacity 0.15s ease;
+opacity: 0;
+
+"></div>
+
+{/if}
+
