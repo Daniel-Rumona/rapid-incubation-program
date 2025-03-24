@@ -13,20 +13,27 @@ import { tick } from 'svelte'
 	let width = 1000, height = 400;
 	let svg;
 function renderChart(data) {
-console.log("🎨 Rendering chart with data:", data);
+	console.log("🎨 Rendering chart with data:", data);
 
-const tooltip = d3.select("#tooltip");
+	const svgEl = document.getElementById("chart");
+	if (!svgEl) {
+		console.error("❌ SVG #chart not found in DOM");
+		return;
+	}
 
-	// Clear previous chart (important if re-rendered)
+	const tooltip = d3.select("#tooltip");
+
+	// Clear any existing elements inside the chart
 	d3.select("#chart").selectAll("*").remove();
 
 	const margin = { top: 20, right: 30, bottom: 100, left: 50 };
 	const chartWidth = width - margin.left - margin.right;
 	const chartHeight = height - margin.top - margin.bottom;
 
-	svg = d3.select("#chart")
+	const svg = d3.select("#chart")
 		.attr("width", width)
-		.attr("height", height);
+		.attr("height", height)
+		.style("background", "#f9f9f9"); // Add background to see chart area
 
 	const g = svg.append("g")
 		.attr("transform", `translate(${margin.left},${margin.top})`);
@@ -36,67 +43,84 @@ const tooltip = d3.select("#tooltip");
 		.range([0, chartWidth])
 		.padding(0.4);
 
+	const yMax = d3.max(data, d => d.value) || 10;
 	const yScale = d3.scaleLinear()
-		.domain([0, d3.max(data, d => d.value)])
+		.domain([0, yMax])
 		.range([chartHeight, 0]);
+
+	console.log("📐 xScale domain:", xScale.domain());
+	console.log("📐 yScale domain:", yScale.domain());
 
 	const colorScale = d3.scaleOrdinal()
 		.domain(data.map(d => d.intervention))
 		.range(d3.schemeTableau10);
 
-	// Bars
-	// Bars
-g.selectAll(".bar")
-	.data(data)
-	.enter()
-	.append("rect")
-	.attr("class", "bar")
-	.attr("x", d => xScale(d.intervention))
-	.attr("y", d => yScale(d.value))
-	.attr("width", xScale.bandwidth())
-	.attr("height", d => chartHeight - yScale(d.value))
-	.attr("rx", 4)
-	.attr("fill", d => colorScale(d.intervention))
-	.on("mouseover", function (event, d) {
-	d3.select(this).attr("opacity", 0.8);
-	tooltip
-		.style("display", "block")
-		.style("opacity", 1)
-		.html(`<strong>${d.intervention}</strong>: ${d.value}`);
-})
+	// Test bar to prove rendering works
+	g.append("rect")
+		.attr("x", 0)
+		.attr("y", 0)
+		.attr("width", 100)
+		.attr("height", 100)
+		.attr("fill", "red");
 
-	.on("mousemove", function (event) {
-		tooltip
-			.style("left", event.pageX + 10 + "px")
-			.style("top", event.pageY - 28 + "px");
-	})
-	.on("mouseout", function () {
-	d3.select(this).attr("opacity", 1);
-	tooltip
-		.style("opacity", 0)
-		.style("display", "none");
-});
+	// Bars
+	const bars = g.selectAll(".bar")
+		.data(data);
 
+	console.log("📊 Data size:", data.length);
+	console.log("📦 Bar selection size:", bars.size());
+
+	bars.enter()
+		.append("rect")
+		.attr("class", "bar")
+		.attr("x", d => {
+			const x = xScale(d.intervention);
+			console.log("🔹 x pos for", d.intervention, "→", x);
+			return x;
+		})
+		.attr("y", d => {
+			const y = yScale(d.value);
+			console.log("🔹 y pos for", d.intervention, "→", y);
+			return y;
+		})
+		.attr("width", xScale.bandwidth())
+		.attr("height", d => {
+			const h = chartHeight - yScale(d.value);
+			console.log("🔹 height for", d.intervention, "→", h);
+			return h;
+		})
+		.attr("rx", 4)
+		.attr("fill", d => colorScale(d.intervention))
+		.on("mouseover", function (event, d) {
+			d3.select(this).attr("opacity", 0.8);
+			tooltip
+				.style("display", "block")
+				.style("opacity", 1)
+				.html(`<strong>${d.intervention}</strong>: ${d.value}`);
+		})
+		.on("mousemove", function (event) {
+			tooltip
+				.style("left", event.pageX + 10 + "px")
+				.style("top", event.pageY - 28 + "px");
+		})
+		.on("mouseout", function () {
+			d3.select(this).attr("opacity", 1);
+			tooltip
+				.style("opacity", 0)
+				.style("display", "none");
+		});
 
 	// Y Axis
 	g.append("g").call(d3.axisLeft(yScale).ticks(5));
 
-	// X Axis (rotated labels)
+	// X Axis
 	g.append("g")
 		.attr("transform", `translate(0, ${chartHeight})`)
 		.call(d3.axisBottom(xScale))
 		.selectAll("text")
 		.attr("transform", "rotate(-40)")
 		.style("text-anchor", "end");
-g.append("rect")
-  .attr("x", 0)
-  .attr("y", 0)
-  .attr("width", 50)
-  .attr("height", 100)
-  .attr("fill", "red");
-
 }
-
 
 	onMount(async () => {
 	isLoading.set(true);
