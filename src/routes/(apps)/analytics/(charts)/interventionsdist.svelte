@@ -2,6 +2,7 @@
 	import { collection, getDocs } from "firebase/firestore";
 	import { db } from "$lib/firebase";
 	import { writable } from "svelte/store";
+import { tick } from 'svelte'
 
 	let isLoading = writable(true);
 	let interventionData = [];
@@ -140,7 +141,9 @@ g.selectAll(".bar")
 	if (interventionData.length === 0) {
 		console.warn("⚠️ No intervention data found. Nothing to render.");
 	} else {
-		renderChart(interventionData);
+		await tick(); 
+renderChart(interventionData);
+
 	}
 
 	isLoading.set(false);
