@@ -7,6 +7,13 @@ import { tick } from 'svelte'
 	let isLoading = writable(true);
 	let interventionData = [];
 
+$: if (!$isLoading && interventionData.length > 0) {
+	tick().then(() => {
+		renderChart(interventionData);
+	});
+}
+
+
 	import { onMount } from "svelte";
 	import * as d3 from "d3";
 
@@ -168,14 +175,6 @@ function renderChart(data) {
 	console.log("📊 Final interventionData:", interventionData);
 
 	interventionData.sort((a, b) => b.value - a.value);
-
-	if (interventionData.length === 0) {
-		console.warn("⚠️ No intervention data found. Nothing to render.");
-	} else {
-		await tick(); 
-renderChart(interventionData);
-
-	}
 
 	isLoading.set(false);
 });
