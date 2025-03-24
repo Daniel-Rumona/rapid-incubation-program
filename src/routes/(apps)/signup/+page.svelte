@@ -62,17 +62,19 @@ const handleSignup = async () => {
 	}
 
 	try {
-		const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+		const normalizedEmail = email.trim().toLowerCase();
+
+		const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
 		const user = userCredential.user;
 
 		// 🔁 Force-refresh token to apply rules and claims immediately
 		await user.getIdToken(true);
 
-		const userRole = adminEmails.includes(email) ? "admin" : "user";
+		const userRole = adminEmails.includes(normalizedEmail) ? "admin" : "user";
 
 		const userRef = doc(db, "Users", user.uid);
 		await setDoc(userRef, {
-			userEmail: user.email,
+			userEmail: normalizedEmail,
 			userFullName: `${firstName} ${lastName}`,
 			userRole,
 			createdAt: new Date(),
@@ -92,6 +94,7 @@ const handleSignup = async () => {
 };
 
 
+
 	// ✅ Handle Google Signup
 const handleGoogleSignup = async () => {
 	const provider = new GoogleAuthProvider();
@@ -103,11 +106,12 @@ const handleGoogleSignup = async () => {
 		// 🔁 Refresh token for immediate Firestore access
 		await user.getIdToken(true);
 
-		const userRole = adminEmails.includes(user.email!) ? "admin" : "user";
+		const userRole = adminEmails.includes(user.email!.toLowerCase()) ? "admin" : "user";
+
 
 		const userRef = doc(db, "Users", user.uid);
 		await setDoc(userRef, {
-			userEmail: user.email,
+			userEmail: user.email!.toLowerCase(),
 			userFullName: user.displayName,
 			userRole,
 			createdAt: new Date(),
