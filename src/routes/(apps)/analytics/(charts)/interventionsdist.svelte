@@ -88,6 +88,13 @@ g.selectAll(".bar")
 		.selectAll("text")
 		.attr("transform", "rotate(-40)")
 		.style("text-anchor", "end");
+g.append("rect")
+  .attr("x", 0)
+  .attr("y", 0)
+  .attr("width", 50)
+  .attr("height", 100)
+  .attr("fill", "red");
+
 }
 
 
