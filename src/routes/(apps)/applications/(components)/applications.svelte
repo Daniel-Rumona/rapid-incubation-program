@@ -156,7 +156,6 @@
 
 			const app = get(selectedApplication);
 			if (app) {
-				console.log("🔄 Checking for updated application status...");
 				await refreshApplicationStatus(app.applicationID);
 			}
 		}, 300); // Small delay ensures smooth closing
