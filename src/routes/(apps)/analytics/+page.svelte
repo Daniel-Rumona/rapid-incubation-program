@@ -14,8 +14,8 @@
 	const charts = [
 		{ value: "geomap", label: "Geographical Distribution", icon: BarChart },
 		{ value: "sourcedist", label: "Source Distribution", icon: LineChart },
-		{ value: "programdist", label: "Programs Distribution", icon: PieChart },
-		{ value: "interventionsdist", label: "Interventions Distribution", icon: PieChart }
+		{ value: "programdist", label: "Gender Distribution", icon: PieChart },
+		{ value: "interventionsdist", label: "Interventions Distribution", icon: BarChart }
 	];
 </script>
 
