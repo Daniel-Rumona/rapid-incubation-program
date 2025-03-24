@@ -3,6 +3,15 @@
 	import * as d3 from "d3";
 	import { collection, getDocs } from "firebase/firestore";
 	import { db } from "$lib/firebase";
+	import { writable } from 'svelte/store';
+
+	let isLoading = writable(true);
+	onMount(async () => {
+		isLoading.set(true);
+		await fetchGenderDistribution();
+		isLoading.set(false);
+	});
+
 
 	export let isDashboard = false;
 
@@ -148,7 +157,18 @@
 	};
 </script>
 
-<div style="display: flex; gap: 20px;">
-	<svg id="pie"></svg>
-	<div id="legend"></div>
-</div>
+{#if $isLoading}
+	<div class="flex items-center justify-center min-h-[200px] w-full">
+		<svg class="animate-spin h-8 w-8 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+		</svg>
+		<span class="ml-3 text-sm text-muted-foreground">Loading gender distribution...</span>
+	</div>
+{:else}
+	<div style="display: flex; gap: 20px;">
+		<svg id="pie"></svg>
+		<div id="legend"></div>
+	</div>
+{/if}
+
