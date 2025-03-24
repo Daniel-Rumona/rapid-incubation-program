@@ -12,6 +12,8 @@
 	let width = 1000, height = 400;
 	let svg;
 function renderChart(data) {
+console.log("🎨 Rendering chart with data:", data);
+
 const tooltip = d3.select("#tooltip");
 
 	// Clear previous chart (important if re-rendered)
@@ -90,20 +92,30 @@ g.selectAll(".bar")
 
 	onMount(async () => {
 	isLoading.set(true);
+	console.log("📦 Fetching users from Firestore...");
 
 	const usersRef = collection(db, "Users");
 	const usersSnapshot = await getDocs(usersRef);
+
+	console.log(`✅ Found ${usersSnapshot.size} users`);
+
 	const interventionCounts = {};
 
 	for (const userDoc of usersSnapshot.docs) {
+		console.log(`👤 Processing user: ${userDoc.id}`);
+
 		const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
 		const appsSnapshot = await getDocs(applicationsRef);
+
+		console.log(`   🗂️ Found ${appsSnapshot.size} applications`);
 
 		for (const appDoc of appsSnapshot.docs) {
 			const appData = appDoc.data();
 			const interventions = appData.interventions;
 
 			if (interventions && typeof interventions === 'object') {
+				console.log("   ➕ Found interventions:", interventions);
+
 				for (const [category, subItems] of Object.entries(interventions)) {
 					if (Array.isArray(subItems)) {
 						for (const sub of subItems) {
@@ -115,15 +127,25 @@ g.selectAll(".bar")
 			}
 		}
 	}
-	
+
 	interventionData = Object.entries(interventionCounts).map(([intervention, value]) => ({
 		intervention,
 		value
 	}));
-interventionData.sort((a, b) => b.value - a.value);
-	renderChart(interventionData);
+
+	console.log("📊 Final interventionData:", interventionData);
+
+	interventionData.sort((a, b) => b.value - a.value);
+
+	if (interventionData.length === 0) {
+		console.warn("⚠️ No intervention data found. Nothing to render.");
+	} else {
+		renderChart(interventionData);
+	}
+
 	isLoading.set(false);
 });
+
 
 </script>
 
