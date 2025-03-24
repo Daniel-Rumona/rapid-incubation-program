@@ -38,7 +38,7 @@
 
 	try {
 		// 🔐 Sign in the user
-		const userCredential = await signInWithEmailAndPassword(auth, email, password);
+		const userCredential = await signInWithEmailAndPassword(auth, email.toLowerCase(), password);
 		const user = userCredential.user;
 
 		// 🔄 Force refresh the token to get latest claims (important!)
