@@ -35,8 +35,6 @@
 			return;
 		}
 
-		console.log("📌 Exporting Application:", app);
-
 		// ✅ Convert application object into transposed format (headers = fields, values = row data)
 		const headers = Object.keys(app); // Extract field names
 		const values = Object.values(app); // Extract values
@@ -60,11 +58,6 @@
 	let weeklyApplications = writable(0);
 	let monthlyApplications = writable(0);
 
-	// Fetch Applications Data from Firestore
-	onMount(async () => {
-		await fetchApplicationMetrics();
-	});
-
 	// Stores
 	let isModalOpen = writable(false);
 	let isStatusModalOpen = writable(false);
@@ -74,10 +67,10 @@
 
 	// 🔹 Fetch Applications on Load
 	onMount(async () => {
+		isLoading.set(true);
 		await fetchAllApplications();
-		applications.subscribe((apps) => {
-			console.log("📌 Loaded Applications:", apps);
-		});
+		await fetchApplicationMetrics();
+		isLoading.set(false);
 	});
 
 	// 🔹 Filter Logic
@@ -105,71 +98,69 @@
 	// 🔹 Select Application
 	function selectApplication(app) {
 		selectedApplication.set(app);
-		console.log("✅ Selected Application:", get(selectedApplication)?.businessName); // Debugging log
 	}
 
 
 
 	function openRecommendationModal(app) {
-    if (!app) {
-        console.warn("⚠️ No valid application selected.");
-        return;
-    }
+		if (!app) {
+			console.warn("⚠️ No valid application selected.");
+			return;
+		}
 
-    // ✅ Close the modal first to force a reset
-    isModalOpen.set(false);
+		// ✅ Close the modal first to force a reset
+		isModalOpen.set(false);
 
-    setTimeout(() => {
-        // ✅ Make sure we're setting a fresh copy of the application
-        selectedApplication.set({ ...app });
+		setTimeout(() => {
+			// ✅ Make sure we're setting a fresh copy of the application
+			selectedApplication.set({ ...app });
 
-        isModalOpen.set(true);
-    }, 10);
-}
+			isModalOpen.set(true);
+		}, 10);
+	}
 
-	
-async function refreshApplicationStatus(applicationID) {
-    try {
-        const usersRef = collection(db, "Users");
-        const usersSnapshot = await getDocs(usersRef);
 
-        for (const userDoc of usersSnapshot.docs) {
-            const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-            const q = query(applicationsRef, where("applicationID", "==", applicationID));
-            const querySnapshot = await getDocs(q);
+	async function refreshApplicationStatus(applicationID) {
+		try {
+			const usersRef = collection(db, "Users");
+			const usersSnapshot = await getDocs(usersRef);
 
-            if (!querySnapshot.empty) {
-                const appDoc = querySnapshot.docs[0];
-                const updatedApp = appDoc.data();
+			for (const userDoc of usersSnapshot.docs) {
+				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
+				const q = query(applicationsRef, where("applicationID", "==", applicationID));
+				const querySnapshot = await getDocs(q);
 
-                // ✅ Update the selected application with new data
-                selectedApplication.set(updatedApp);
-                console.log("✅ Application Status Updated:", updatedApp.applicationStatus);
-                return;
-            }
-        }
+				if (!querySnapshot.empty) {
+					const appDoc = querySnapshot.docs[0];
+					const updatedApp = appDoc.data();
 
-        console.warn("⚠️ Application ID not found in Firestore.");
-    } catch (error) {
-        console.error("🔥 Error refreshing application status:", error);
-    }
-}
-function closeRecommendationModal() {
-    isModalOpen.set(false);
+					// ✅ Update the selected application with new data
+					selectedApplication.set(updatedApp);
+					return;
+				}
+			}
 
-    setTimeout(async () => {
-        // ✅ Restore scrolling when modal is fully closed
-        if (!get(isModalOpen)) {
-            document.body.style.overflow = "";
-        }
+			console.warn("⚠️ Application ID not found in Firestore.");
+		} catch (error) {
+			console.error("🔥 Error refreshing application status:", error);
+		}
+	}
+	function closeRecommendationModal() {
+		isModalOpen.set(false);
 
-        const app = get(selectedApplication);
-        if (app) {
-            console.log("🔄 Checking for updated application status...");
-            await refreshApplicationStatus(app.applicationID);
-        }
-    }, 300); // Small delay ensures smooth closing
-}
+		setTimeout(async () => {
+			// ✅ Restore scrolling when modal is fully closed
+			if (!get(isModalOpen)) {
+				document.body.style.overflow = "";
+			}
+
+			const app = get(selectedApplication);
+			if (app) {
+				console.log("🔄 Checking for updated application status...");
+				await refreshApplicationStatus(app.applicationID);
+			}
+		}, 300); // Small delay ensures smooth closing
+	}
 
 
 
@@ -289,271 +280,282 @@ function closeRecommendationModal() {
 
 <div class="flex min-h-screen w-full flex-col">
 	<div class="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-		<main
-			class="grid flex-1 items-start gap-3 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3"
-		>
-			<div class="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
-				<div
-					class="flex flex-row gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4"
-				>
-					<Card.Root class="flex flex-col items-center gap-4 p-2 sm:col-span-2">
-						<Card.Header class="text-center">
-							<Card.Title>All Applications</Card.Title>
-						</Card.Header>
-						<div class="flex flex-row gap-2 p-1">
-							<Card.Root>
-								<Card.Header class="pb-2 text-center">
-									<Card.Description>Accepted</Card.Description>
-									<Card.Title class="text-4xl">{$acceptedApplications}</Card.Title>
-								</Card.Header>
-							</Card.Root>
-							<Card.Root>
-								<Card.Header class="pb-2 text-center">
-									<Card.Description>Rejected</Card.Description>
-									<Card.Title class="text-4xl">{$rejectedApplications}</Card.Title>
-								</Card.Header>
-							</Card.Root>
-						</div>
-					</Card.Root>
-					<Card.Root>
-						<Card.Header class="pb-2">
-							<Card.Description>This Week</Card.Description>
-							<Card.Title class="text-4xl">{$weeklyApplications}</Card.Title>
-						</Card.Header>
-					</Card.Root>
-					<Card.Root>
-						<Card.Header class="pb-2">
-							<Card.Description>This Month</Card.Description>
-							<Card.Title class="text-3xl">{$monthlyApplications}</Card.Title>
-						</Card.Header>
-					</Card.Root>
-				</div>
-				<Tabs.Root value="week">
-					<div class="flex items-center">
-						<Tabs.List>
-							<Tabs.Trigger value="day">Day</Tabs.Trigger>
-							<Tabs.Trigger value="week">Week</Tabs.Trigger>
-							<Tabs.Trigger value="month">Month</Tabs.Trigger>
-						</Tabs.List>
-						<div class="ml-auto flex items-center gap-2">
-							<DropdownMenu.Root>
-								<DropdownMenu.Trigger asChild let:builder>
-									<Button variant="outline" size="sm" class="h-7 gap-1 text-sm" builders={[builder]}>
-										<ListFilter class="h-3.5 w-3.5" />
-										<span class="sr-only sm:not-sr-only">Filter</span>
-									</Button>
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content align="end">
-									<DropdownMenu.Label>Filter by</DropdownMenu.Label>
-									<DropdownMenu.Separator />
-									<DropdownMenu.CheckboxItem checked={selectedFilter === 'Accepted'} on:click={() => selectedFilter = "Accepted"}>Accepted</DropdownMenu.CheckboxItem>
-									<DropdownMenu.CheckboxItem checked={selectedFilter === 'Rejected'} on:click={() => selectedFilter = "Rejected"}>Rejected</DropdownMenu.CheckboxItem>
-									<DropdownMenu.CheckboxItem checked={selectedFilter === 'All'} on:click={() => selectedFilter = "All"}>All</DropdownMenu.CheckboxItem>
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
-
-							<Button size="sm" variant="outline" class="h-7 gap-1 text-sm" on:click={exportApplication}>
-								<File class="h-3.5 w-3.5" />
-								<span class="sr-only sm:not-sr-only">Export</span>
-							</Button>
-						</div>
-					</div>
-					<Tabs.Content value="week">
-						<Card.Root>
-							<Card.Header class="mb-2 px-7">
-								<Card.Title>Applications</Card.Title>
-								<Card.Description>Recent Applications.</Card.Description>
+		{#if $isLoading}
+			<div class="flex min-h-[60vh] w-full items-center justify-center">
+				<svg class="animate-spin h-10 w-10 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+				</svg>
+				<span class="ml-3 text-muted-foreground text-sm">Loading applications...</span>
+			</div>
+		{:else}
+			<main
+				class="grid flex-1 items-start gap-3 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3"
+			>
+				<div class="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
+					<div
+						class="flex flex-row gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4"
+					>
+						<Card.Root class="flex flex-col items-center gap-4 p-2 sm:col-span-2">
+							<Card.Header class="text-center">
+								<Card.Title>All Applications</Card.Title>
 							</Card.Header>
-							<Card.Content>
-								<Table.Root>
-									<Table.Header>
-										<Table.Row>
-											<Table.Head>Applicant</Table.Head>
-											<Table.Head class="hidden sm:table-cell">Sector</Table.Head>
-											<Table.Head class="hidden sm:table-cell">Status</Table.Head>
-											<Table.Head class="hidden md:table-cell">Program</Table.Head>
-											<Table.Head class="text-right">Action</Table.Head>
-										</Table.Row>
-									</Table.Header>
-									<Table.Body>
-										{#each filteredApplications as app}
-											<Table.Row class="cursor-pointer hover:bg-accent" on:click={() => selectApplication(app)}>
-												<Table.Cell>
-													<div class="font-medium">{app.name}</div>
-													<div class="hidden text-sm text-muted-foreground md:inline">{app.email}</div>
-												</Table.Cell>
-												<Table.Cell class="hidden sm:table-cell">{app.natureOfBusiness}</Table.Cell>
-												<Table.Cell class="hidden sm:table-cell">
-													<Badge class={`text-xs ${app.applicationStatus === "Accepted"
+							<div class="flex flex-row gap-2 p-1">
+								<Card.Root>
+									<Card.Header class="pb-2 text-center">
+										<Card.Description>Accepted</Card.Description>
+										<Card.Title class="text-4xl">{$acceptedApplications}</Card.Title>
+									</Card.Header>
+								</Card.Root>
+								<Card.Root>
+									<Card.Header class="pb-2 text-center">
+										<Card.Description>Rejected</Card.Description>
+										<Card.Title class="text-4xl">{$rejectedApplications}</Card.Title>
+									</Card.Header>
+								</Card.Root>
+							</div>
+						</Card.Root>
+						<Card.Root>
+							<Card.Header class="pb-2">
+								<Card.Description>This Week</Card.Description>
+								<Card.Title class="text-4xl">{$weeklyApplications}</Card.Title>
+							</Card.Header>
+						</Card.Root>
+						<Card.Root>
+							<Card.Header class="pb-2">
+								<Card.Description>This Month</Card.Description>
+								<Card.Title class="text-3xl">{$monthlyApplications}</Card.Title>
+							</Card.Header>
+						</Card.Root>
+					</div>
+					<Tabs.Root value="week">
+						<div class="flex items-center">
+							<Tabs.List>
+								<Tabs.Trigger value="day">Day</Tabs.Trigger>
+								<Tabs.Trigger value="week">Week</Tabs.Trigger>
+								<Tabs.Trigger value="month">Month</Tabs.Trigger>
+							</Tabs.List>
+							<div class="ml-auto flex items-center gap-2">
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger asChild let:builder>
+										<Button variant="outline" size="sm" class="h-7 gap-1 text-sm" builders={[builder]}>
+											<ListFilter class="h-3.5 w-3.5" />
+											<span class="sr-only sm:not-sr-only">Filter</span>
+										</Button>
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content align="end">
+										<DropdownMenu.Label>Filter by</DropdownMenu.Label>
+										<DropdownMenu.Separator />
+										<DropdownMenu.CheckboxItem checked={selectedFilter === 'Accepted'} on:click={() => selectedFilter = "Accepted"}>Accepted</DropdownMenu.CheckboxItem>
+										<DropdownMenu.CheckboxItem checked={selectedFilter === 'Rejected'} on:click={() => selectedFilter = "Rejected"}>Rejected</DropdownMenu.CheckboxItem>
+										<DropdownMenu.CheckboxItem checked={selectedFilter === 'All'} on:click={() => selectedFilter = "All"}>All</DropdownMenu.CheckboxItem>
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+
+								<Button size="sm" variant="outline" class="h-7 gap-1 text-sm" on:click={exportApplication}>
+									<File class="h-3.5 w-3.5" />
+									<span class="sr-only sm:not-sr-only">Export</span>
+								</Button>
+							</div>
+						</div>
+						<Tabs.Content value="week">
+							<Card.Root>
+								<Card.Header class="mb-2 px-7">
+									<Card.Title>Applications</Card.Title>
+									<Card.Description>Recent Applications.</Card.Description>
+								</Card.Header>
+								<Card.Content>
+									<Table.Root>
+										<Table.Header>
+											<Table.Row>
+												<Table.Head>Applicant</Table.Head>
+												<Table.Head class="hidden sm:table-cell">Sector</Table.Head>
+												<Table.Head class="hidden sm:table-cell">Status</Table.Head>
+												<Table.Head class="hidden md:table-cell">Program</Table.Head>
+												<Table.Head class="text-right">Action</Table.Head>
+											</Table.Row>
+										</Table.Header>
+										<Table.Body>
+											{#each filteredApplications as app}
+												<Table.Row class="cursor-pointer hover:bg-accent" on:click={() => selectApplication(app)}>
+													<Table.Cell>
+														<div class="font-medium">{app.name}</div>
+														<div class="hidden text-sm text-muted-foreground md:inline">{app.email}</div>
+													</Table.Cell>
+													<Table.Cell class="hidden sm:table-cell">{app.natureOfBusiness}</Table.Cell>
+													<Table.Cell class="hidden sm:table-cell">
+														<Badge class={`text-xs ${app.applicationStatus === "Accepted"
 																	? "bg-blue-100 text-blue-700"
 																	: app.applicationStatus === "Rejected"
 																	? "bg-red-100 text-red-700"
 																	: "bg-gray-100 text-gray-700"
 														}`}>
-														{app.applicationStatus || "Awaiting Confirmation"}
-													</Badge>
-												</Table.Cell>
-												<Table.Cell class="hidden sm:table-cell">{app.programName}</Table.Cell>
-												<Table.Cell>
-													<!-- ✅ Open Modal with Selected Application -->
-													<Button size="sm" variant="outline" on:click={(e) => { e.stopPropagation(); openRecommendationModal(app); }}>
-														Check Recommendation
-													</Button>
-												</Table.Cell>
-											</Table.Row>
-										{/each}
-									</Table.Body>
-								</Table.Root>
-							</Card.Content>
-						</Card.Root>
-					</Tabs.Content>
-				</Tabs.Root>
-			</div>
-			<div>
-				<Card.Root class="overflow-hidden">
-					<Card.Header class="flex flex-row items-start bg-muted/50">
-						<div class="grid gap-0.5">
-							<Card.Title class="group flex items-center gap-2 text-lg">
-								{$selectedApplication?.applicationID}
-								<Button
-									size="icon"
-									variant="outline"
-									class="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-								>
-									<Copy class="h-3 w-3" />
-									<span class="sr-only">Copy Application ID</span>
+															{app.applicationStatus || "Awaiting Confirmation"}
+														</Badge>
+													</Table.Cell>
+													<Table.Cell class="hidden sm:table-cell">{app.programName}</Table.Cell>
+													<Table.Cell>
+														<!-- ✅ Open Modal with Selected Application -->
+														<Button size="sm" variant="outline" on:click={(e) => { e.stopPropagation(); openRecommendationModal(app); }}>
+															Check Recommendation
+														</Button>
+													</Table.Cell>
+												</Table.Row>
+											{/each}
+										</Table.Body>
+									</Table.Root>
+								</Card.Content>
+							</Card.Root>
+						</Tabs.Content>
+					</Tabs.Root>
+				</div>
+				<div>
+					<Card.Root class="overflow-hidden">
+						<Card.Header class="flex flex-row items-start bg-muted/50">
+							<div class="grid gap-0.5">
+								<Card.Title class="group flex items-center gap-2 text-lg">
+									{$selectedApplication?.applicationID}
+									<Button
+										size="icon"
+										variant="outline"
+										class="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+									>
+										<Copy class="h-3 w-3" />
+										<span class="sr-only">Copy Application ID</span>
+									</Button>
+								</Card.Title>
+								<Card.Description class="mb-2">
+									Date: {formatDate($selectedApplication?.submittedAt)}
+								</Card.Description>
+							</div>
+							<div class="ml-auto flex items-center gap-1">
+								<Button size="sm" variant="outline" class="h-8 gap-1" on:click={downloadUserDocuments}>
+									<File class="h-3.5 w-3.5" /> Download User Documents
 								</Button>
-							</Card.Title>
-							<Card.Description class="mb-2">
-								Date: {formatDate($selectedApplication?.submittedAt)}
-							</Card.Description>
-						</div>
-						<div class="ml-auto flex items-center gap-1">
-							<Button size="sm" variant="outline" class="h-8 gap-1" on:click={downloadUserDocuments}>
-								<File class="h-3.5 w-3.5" /> Download User Documents
-							</Button>
 
-						</div>
-					</Card.Header>
-					<Card.Content class="p-6 text-sm">
-						<div class="grid gap-3">
-							<div class="font-semibold">Business Details</div>
-							<ul class="grid gap-3">
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Business Name </span>
-									<span>{$selectedApplication?.businessName}</span>
-								</li>
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Sector </span>
-									<span>{$selectedApplication?.natureOfBusiness}</span>
-								</li>
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Business Description </span>
-									<span class=text-[8px]>{$selectedApplication?.businessDescription}</span>
-								</li>
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Growth Rate</span>
-									<span>{$selectedApplication?.growthRate}</span>
-								</li>
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground"> Previous Year Revenue </span>
-									<span>{$selectedApplication?.revenueFor2024}</span>
-								</li>
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground">Total Past Four Months Turnover </span>
-									<span> {(
-										(parseFloat($selectedApplication?.revenueForMonth1 || "0")) +
-										(parseFloat($selectedApplication?.revenueForMonth2 || "0")) +
-										(parseFloat($selectedApplication?.revenueForMonth3 || "0")) +
-										(parseFloat($selectedApplication?.revenueForMonth4 || "0"))
-									).toFixed(0)}</span>
-								</li>
-								<li class="flex items-center justify-between">
-									<span class="text-muted-foreground">Last Year Number Of Workers</span>
-									<span>{$selectedApplication?.employeesFor2024}</span>
-								</li>
-
-							</ul>
-							<div class="font-semibold">Top Interventions</div>
-							<ul class="grid gap-3">
-								{#if $selectedApplication?.interventions}
-									{#each Object.entries($selectedApplication.interventions) as [key, value]}
-										{#if Array.isArray(value) && value.length > 0}
-											<li class="flex items-center justify-between">
-												<span class="text-muted-foreground">🔹 {key} ({value.length})</span>
-											</li>
-										{/if}
-									{/each}
-								{:else}
-									<li class="text-muted-foreground">No interventions available.</li>
-								{/if}
-							</ul>
-
-							<Separator class="my-4" />
+							</div>
+						</Card.Header>
+						<Card.Content class="p-6 text-sm">
 							<div class="grid gap-3">
-								<div class="font-semibold">Applicant Information</div>
-								<dl class="grid gap-3">
-									<div class="flex items-center justify-between">
-										<dt class="text-muted-foreground">Applicant</dt>
-										<dd>{$selectedApplication?.name}</dd>
-									</div>
-									<div class="flex items-center justify-between">
-										<dt class="text-muted-foreground">Email</dt>
-										<dd>
-											<a href="mailto:">{$selectedApplication?.email}</a>
-										</dd>
-									</div>
-									<div class="flex items-center justify-between">
-										<dt class="text-muted-foreground">Phone</dt>
-										<dd>
-											<a href="tel:">{$selectedApplication?.phoneNumber}</a>
-										</dd>
-									</div>
-								</dl>
-							</div>
-							<Separator class="my-4" />
-							<div class="grid grid-cols-2 gap-4">
-								<div class="grid gap-3">
-									<div class="font-semibold">Address Information</div>
-									<address class="grid gap-0.5 not-italic text-muted-foreground">
-										<span>{$selectedApplication?.name}</span>
-										<span>{$selectedApplication?.businessAddress}</span>
-									</address>
-								</div>
-							</div>
-						</div></Card.Content
-					>
-					<Card.Footer class="bApplication-t flex flex-row items-center bg-muted/50 px-6 py-3">
-						<div class="text-xs text-muted-foreground">
-							Updated <time dateTime="2023-11-23">November 23, 2023</time>
-						</div>
-						<Pagination.Root count={10} class="ml-auto mr-0 w-auto">
-							<Pagination.Content>
-								<Pagination.Item>
-									<Button size="icon" variant="outline" class="h-6 w-6">
-										<ChevronLeft class="h-3.5 w-3.5" />
-										<span class="sr-only">Previous Application</span>
-									</Button>
-								</Pagination.Item>
-								<Pagination.Item>
-									<Button size="icon" variant="outline" class="h-6 w-6">
-										<ChevronRight class="h-3.5 w-3.5" />
-										<span class="sr-only">Next Application</span>
-									</Button>
-								</Pagination.Item>
-							</Pagination.Content>
-						</Pagination.Root>
-					</Card.Footer>
-				</Card.Root>
+								<div class="font-semibold">Business Details</div>
+								<ul class="grid gap-3">
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground"> Business Name </span>
+										<span>{$selectedApplication?.businessName}</span>
+									</li>
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground"> Sector </span>
+										<span>{$selectedApplication?.natureOfBusiness}</span>
+									</li>
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground"> Business Description </span>
+										<span class=text-[8px]>{$selectedApplication?.businessDescription}</span>
+									</li>
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground"> Growth Rate</span>
+										<span>{$selectedApplication?.growthRate}</span>
+									</li>
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground"> Previous Year Revenue </span>
+										<span>{$selectedApplication?.revenueFor2024}</span>
+									</li>
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground">Total Past Four Months Turnover </span>
+										<span> {(
+											(parseFloat($selectedApplication?.revenueForMonth1 || "0")) +
+											(parseFloat($selectedApplication?.revenueForMonth2 || "0")) +
+											(parseFloat($selectedApplication?.revenueForMonth3 || "0")) +
+											(parseFloat($selectedApplication?.revenueForMonth4 || "0"))
+										).toFixed(0)}</span>
+									</li>
+									<li class="flex items-center justify-between">
+										<span class="text-muted-foreground">Last Year Number Of Workers</span>
+										<span>{$selectedApplication?.employeesFor2024}</span>
+									</li>
 
-			</div>
-			<!-- ✅ Only one Recommendation Modal -->
+								</ul>
+								<div class="font-semibold">Top Interventions</div>
+								<ul class="grid gap-3">
+									{#if $selectedApplication?.interventions}
+										{#each Object.entries($selectedApplication.interventions) as [key, value]}
+											{#if Array.isArray(value) && value.length > 0}
+												<li class="flex items-center justify-between">
+													<span class="text-muted-foreground">🔹 {key} ({value.length})</span>
+												</li>
+											{/if}
+										{/each}
+									{:else}
+										<li class="text-muted-foreground">No interventions available.</li>
+									{/if}
+								</ul>
+
+								<Separator class="my-4" />
+								<div class="grid gap-3">
+									<div class="font-semibold">Applicant Information</div>
+									<dl class="grid gap-3">
+										<div class="flex items-center justify-between">
+											<dt class="text-muted-foreground">Applicant</dt>
+											<dd>{$selectedApplication?.name}</dd>
+										</div>
+										<div class="flex items-center justify-between">
+											<dt class="text-muted-foreground">Email</dt>
+											<dd>
+												<a href="mailto:">{$selectedApplication?.email}</a>
+											</dd>
+										</div>
+										<div class="flex items-center justify-between">
+											<dt class="text-muted-foreground">Phone</dt>
+											<dd>
+												<a href="tel:">{$selectedApplication?.phoneNumber}</a>
+											</dd>
+										</div>
+									</dl>
+								</div>
+								<Separator class="my-4" />
+								<div class="grid grid-cols-2 gap-4">
+									<div class="grid gap-3">
+										<div class="font-semibold">Address Information</div>
+										<address class="grid gap-0.5 not-italic text-muted-foreground">
+											<span>{$selectedApplication?.name}</span>
+											<span>{$selectedApplication?.businessAddress}</span>
+										</address>
+									</div>
+								</div>
+							</div></Card.Content
+						>
+						<Card.Footer class="bApplication-t flex flex-row items-center bg-muted/50 px-6 py-3">
+							<div class="text-xs text-muted-foreground">
+								Updated <time dateTime="2023-11-23">November 23, 2023</time>
+							</div>
+							<Pagination.Root count={10} class="ml-auto mr-0 w-auto">
+								<Pagination.Content>
+									<Pagination.Item>
+										<Button size="icon" variant="outline" class="h-6 w-6">
+											<ChevronLeft class="h-3.5 w-3.5" />
+											<span class="sr-only">Previous Application</span>
+										</Button>
+									</Pagination.Item>
+									<Pagination.Item>
+										<Button size="icon" variant="outline" class="h-6 w-6">
+											<ChevronRight class="h-3.5 w-3.5" />
+											<span class="sr-only">Next Application</span>
+										</Button>
+									</Pagination.Item>
+								</Pagination.Content>
+							</Pagination.Root>
+						</Card.Footer>
+					</Card.Root>
+
+				</div>
+				<!-- ✅ Only one Recommendation Modal -->
 				<RecommendationModal
 					isOpen={$isModalOpen}
 					application={$selectedApplication}
 					on:close={closeRecommendationModal}
 				/>
 
-		</main>
-	</div>
-</div>
+			</main>
+			{/if}
+			</div>
+			</div>
+
