@@ -27,28 +27,27 @@
 	import  {Icons} from "$lib/components/ui/icons/index";
 	import * as XLSX from "xlsx"; // ✅ Import xlsx for Excel export
 
-	function exportApplication() {
-		const app = get(selectedApplication); // ✅ Get the selected application
+	function exportAllApplications() {
+	const allApps = get(applications); // Get all applications from the store
 
-		if (!app) {
-			alert("⚠️ No application selected for export.");
-			return;
-		}
-
-		// ✅ Convert application object into transposed format (headers = fields, values = row data)
-		const headers = Object.keys(app); // Extract field names
-		const values = Object.values(app); // Extract values
-
-		// ✅ Convert to worksheet format
-		const worksheet = XLSX.utils.aoa_to_sheet([headers, values]);
-
-		// ✅ Create a new workbook and append the worksheet
-		const workbook = XLSX.utils.book_new();
-		XLSX.utils.book_append_sheet(workbook, worksheet, "Application");
-
-		// ✅ Generate Excel file and trigger download
-		XLSX.writeFile(workbook, `Application_${app.applicationID || "Export"}.xlsx`);
+	if (!allApps || allApps.length === 0) {
+		alert("⚠️ No applications found.");
+		return;
 	}
+
+	// ✅ Map data into rows (with headers)
+	const headers = Object.keys(allApps[0]);
+	const rows = allApps.map(app => headers.map(h => app[h] ?? "")); // Handle missing values
+
+	// ✅ Build worksheet and workbook
+	const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+	const workbook = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(workbook, worksheet, "All_Applications");
+
+	// ✅ Export as Excel file
+	XLSX.writeFile(workbook, "All_Applications.xlsx");
+}
+
 
 	const isLoading = writable(false); // ✅ Now it's a store
 
@@ -353,7 +352,7 @@
 
 								<Button size="sm" variant="outline" class="h-7 gap-1 text-sm" on:click={exportApplication}>
 									<File class="h-3.5 w-3.5" />
-									<span class="sr-only sm:not-sr-only">Export</span>
+									<span class="sr-only sm:not-sr-only">Export All</span>
 								</Button>
 							</div>
 						</div>
