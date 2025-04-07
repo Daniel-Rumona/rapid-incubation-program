@@ -35,16 +35,70 @@
 		return;
 	}
 
-	// ✅ Map data into rows (with headers)
-	const headers = Object.keys(allApps[0]);
-	const rows = allApps.map(app => headers.map(h => app[h] ?? "")); // Handle missing values
+	// ✅ Human-friendly headers and mapping keys
+	const headers = [
+		"Program ID", "Program Name", "Program Category",
+		"First Name", "Last Name", "Full Name", "Gender", "Age", "ID Number",
+		"Disability", "Academic Qualification", "Are You a DUT Student?", "Phone Number",
+		"Business Name", "Years of Trading", "Registration Number", "Date of Registration",
+		"Business Address", "Province", "City", "Location",
+		"Business Email",
+		"Website", "Instagram", "X (Twitter)", "Facebook", "LinkedIn", "Other Social",
+		"Nature of Business", "Business Description", "Number of Employees", "Growth Rate",
+		"Postal Code", "Last 4 Months Turnover",
+		"Revenue 2022", "Revenue 2023", "Revenue 2024",
+		"Employees 2022", "Employees 2023", "Employees 2024",
+		"Revenue Month 1", "Revenue Month 2", "Revenue Month 3", "Revenue Month 4",
+		"Employees Month 1", "Employees Month 2", "Employees Month 3", "Employees Month 4",
+		"Referral Source", "Valid Tax Pin", "Tax Compliance", "BBBEE Certificate",
+		"Motivation", "Challenges",
+		"Software: Accounting & Finance", "Software: Human Resources", "Software: Marketing",
+		"Software: Risk Management", "Software: Other",
+		"Intervention: Marketing & Sales", "Intervention: Financial Management & Systems",
+		"Intervention: Regulatory Compliance", "Intervention: Mentorship & Coaching",
+		"Intervention: Technical Training & Webinars", "Intervention: Operational Support",
+		"Intervention: Growth Plan", "Intervention: Project Management",
+		"Number of Documents Uploaded"
+	];
 
-	// ✅ Build worksheet and workbook
+	// ✅ Match each header to the corresponding data value
+	const rows = allApps.map(app => [
+		app.programID, app.programName, app.programCategory,
+		app.firstName, app.lastName, app.fullName, app.applicantGender, app.applicantAge, app.applicantIDNumber,
+		app.applicantDisability, app.applicantAcademicQualification, app.areYouDUTStudent, app.phoneNumber,
+		app.businessName, app.yearsOfTrading, app.registrationNumber, app.dateOfRegistration,
+		app.businessAddress, app.businessAddressProvince, app.businessAddressCity, app.businessAddressLocation,
+		app.businessEmail,
+		app.socialMediaWebsiteAddress, app.socialMediaInstagramAddress, app.socialMediaXAddress,
+		app.socialMediaFacebookAddress, app.socialMediaLinkedInAddress, app.socialMediaOtherAddress,
+		app.natureOfBusiness, app.businessDescription, app.businessNumberOfEmployees, app.businessGrowthRate,
+		app.postalCode, app.lastFourMonthsTurnover,
+		app.revenueFor2022, app.revenueFor2023, app.revenueFor2024,
+		app.employeesFor2022, app.employeesFor2023, app.employeesFor2024,
+		app.revenueForMonth1, app.revenueForMonth2, app.revenueForMonth3, app.revenueForMonth4,
+		app.employeesForMonth1, app.employeesForMonth2, app.employeesForMonth3, app.employeesForMonth4,
+		app.whereDidYouHearAboutUs, app.validTaxPin, app.taxCompliance, app.bbbbeeCertificate,
+		app.motivation, app.challenges,
+		(app.softwareAreas?.["Accounting & Finance"] || []).join(", "),
+		(app.softwareAreas?.["Human Resources"] || []).join(", "),
+		(app.softwareAreas?.["Marketing"] || []).join(", "),
+		(app.softwareAreas?.["Risk Management"] || []).join(", "),
+		(app.softwareAreas?.["Other"] || []).join(", "),
+		(app.interventions?.["Marketing and Sales"] || []).join(", "),
+		(app.interventions?.["Financial Management & Systems"] || []).join(", "),
+		(app.interventions?.["Regulatory Compliance"] || []).join(", "),
+		(app.interventions?.["Business Mentorship & Coaching"] || []).join(", "),
+		(app.interventions?.["Technical Training & Webinars"] || []).join(", "),
+		(app.interventions?.["Operational Support"] || []).join(", "),
+		(app.interventions?.["Growth Plan"] || []).join(", "),
+		(app.interventions?.["Project Management"] || []).join(", "),
+		app.documents?.length || 0
+	]);
+
+	// ✅ Build and export workbook
 	const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 	const workbook = XLSX.utils.book_new();
 	XLSX.utils.book_append_sheet(workbook, worksheet, "All_Applications");
-
-	// ✅ Export as Excel file
 	XLSX.writeFile(workbook, "All_Applications.xlsx");
 }
 
