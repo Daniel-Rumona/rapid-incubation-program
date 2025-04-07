@@ -165,88 +165,67 @@
 	// Update Status in Firestore
 
 	async function fetchApplicationMetrics() {
-		try {
-			const usersRef = collection(db, "Users");
-			const usersSnapshot = await getDocs(usersRef);
-			const today = new Date();
+	try {
+		const usersRef = collection(db, "Users");
+		const usersSnapshot = await getDocs(usersRef);
+		const today = new Date();
 
-			// 🔹 Define the correct time ranges
-			const sevenDaysAgo = new Date();
-			sevenDaysAgo.setDate(today.getDate() - 7); // Rolling 7-day window
+		const sevenDaysAgo = new Date();
+		sevenDaysAgo.setDate(today.getDate() - 7);
 
-			const currentMonth = today.getMonth();
-			const currentYear = today.getFullYear();
+		const currentMonth = today.getMonth();
+		const currentYear = today.getFullYear();
 
-			console.log("📌 Today's Date:", today.toISOString()); // Debug today's date
-			console.log("📌 Current Month (Index):", currentMonth, "Year:", currentYear);
+		let acceptedCount = 0;
+		let rejectedCount = 0;
+		let weekCount = 0;
+		let monthCount = 0;
 
-			let acceptedCount = 0;
-			let rejectedCount = 0;
-			let weekCount = 0;
-			let monthCount = 0;
+		// Parallelize fetching all user applications
+		const appSnapshots = await Promise.all(
+			usersSnapshot.docs.map(async (userDoc) => {
+				const appsRef = collection(db, `Users/${userDoc.id}/Applications`);
+				const snapshot = await getDocs(appsRef);
+				return snapshot.docs.map(doc => doc.data());
+			})
+		);
 
-			for (const userDoc of usersSnapshot.docs) {
-				const applicationsRef = collection(db, `Users/${userDoc.id}/Applications`);
-				const applicationsSnapshot = await getDocs(applicationsRef);
+		// Flatten all application arrays into one
+		const allApplications = appSnapshots.flat();
 
-				applicationsSnapshot.forEach((appDoc) => {
-					const appData = appDoc.data();
+		// Loop through each app to count metrics
+		for (const appData of allApplications) {
+			if (appData.applicationStatus === "Accepted") acceptedCount++;
+			if (appData.applicationStatus === "Rejected") rejectedCount++;
 
-					if (appData.applicationStatus === "Accepted") acceptedCount++;
-					if (appData.applicationStatus === "Rejected") rejectedCount++;
+			if (appData.submittedAt) {
+				let submittedDate = appData.submittedAt.seconds
+					? new Date(appData.submittedAt.seconds * 1000)
+					: new Date(appData.submittedAt);
 
-					// ✅ Convert submittedAt timestamp properly
-					if (appData.submittedAt) {
-						let submittedDate;
+				if (submittedDate >= sevenDaysAgo) {
+					weekCount++;
+				}
 
-						// 🔹 Handle Firestore Timestamp Conversion
-						if (appData.submittedAt.seconds) {
-							submittedDate = new Date(appData.submittedAt.seconds * 1000);
-						} else {
-							// 🔹 Handle Possible ISO String Format
-							submittedDate = new Date(appData.submittedAt);
-						}
-
-						console.log("📌 Submitted At:", submittedDate.toISOString());
-						console.log("📌 Submitted Month (Index):", submittedDate.getMonth(), "Year:", submittedDate.getFullYear());
-
-						// ✅ Fix: Rolling 7-day week count
-						if (submittedDate >= sevenDaysAgo) {
-							weekCount++;
-						}
-
-						// ✅ Fix: Ensure the submitted application falls within this month & year
-						if (
-							submittedDate.getFullYear() === currentYear &&
-							submittedDate.getMonth() === currentMonth
-						) {
-							monthCount++;
-						} else {
-							console.warn(`⚠️ Skipped for Monthly Count: ${submittedDate.toISOString()}`);
-						}
-					} else {
-						console.warn("⚠️ Missing `submittedAt` field in application:", appData);
-					}
-				});
+				if (
+					submittedDate.getFullYear() === currentYear &&
+					submittedDate.getMonth() === currentMonth
+				) {
+					monthCount++;
+				}
 			}
-
-			// ✅ Update the stores
-			acceptedApplications.set(acceptedCount);
-			rejectedApplications.set(rejectedCount);
-			weeklyApplications.set(weekCount);
-			monthlyApplications.set(monthCount);
-
-			console.log("✅ Updated Metrics:", {
-				acceptedCount,
-				rejectedCount,
-				weeklyApplications: weekCount,
-				monthlyApplications: monthCount,
-			});
-
-		} catch (error) {
-			console.error("🔥 Error Fetching Application Metrics:", error);
 		}
+
+		// Update the stores
+		acceptedApplications.set(acceptedCount);
+		rejectedApplications.set(rejectedCount);
+		weeklyApplications.set(weekCount);
+		monthlyApplications.set(monthCount);
+	} catch (error) {
+		console.error("🔥 Error Fetching Application Metrics:", error);
 	}
+}
+
 	async function downloadUserDocuments() {
 		const app = get(selectedApplication);
 
