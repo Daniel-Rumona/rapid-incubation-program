@@ -350,7 +350,7 @@
 									</DropdownMenu.Content>
 								</DropdownMenu.Root>
 
-								<Button size="sm" variant="outline" class="h-7 gap-1 text-sm" on:click={exportApplication}>
+								<Button size="sm" variant="outline" class="h-7 gap-1 text-sm" on:click={exportAllApplication}>
 									<File class="h-3.5 w-3.5" />
 									<span class="sr-only sm:not-sr-only">Export All</span>
 								</Button>
