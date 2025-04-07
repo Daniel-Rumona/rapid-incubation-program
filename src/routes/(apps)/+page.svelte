@@ -20,13 +20,11 @@
 
 	<!-- Main Content -->
 	<div class="overlay">
-		<h1>Welcome to DUT CSE Rapid Incubation Program</h1>
-		<p>An innovation-driven gateway to entrepreneurial success.</p>
-		<p>Accelerate your business growth with expert support and resources.</p>
+		<h1>Applications are now closed</h1>
+		<p>Thank you for your interest in the DUT CSE Rapid Incubation Program.</p>
+		<p>If you've already applied, you can still sign in to manage your application.</p>
 		<div class="form-container">
 			<div class="button-group">
-				<Button type="button" class="register-btn" on:click={() => navigateWithTransition('/signup')}>Register</Button>
-				<span class="separator">|</span>
 				<Button type="button" class="signin-btn" on:click={() => navigateWithTransition('/signin')}>Sign-in</Button>
 			</div>
 		</div>
