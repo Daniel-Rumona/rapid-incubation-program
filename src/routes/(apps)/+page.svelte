@@ -15,16 +15,17 @@
 
 <div class="hero-container" class:fade-out={$fadeOut}>
 	<!-- Logos -->
-	<img src="/dut-cseri.png" alt="DUT CSE Logo" class="logo logo-left">
 	<img src="/QuantilytixO.png" alt="Quantilytix Logo" class="logo logo-right">
 
 	<!-- Main Content -->
 	<div class="overlay">
-		<h1>Applications are now closed</h1>
-		<p>Thank you for your interest in the DUT CSE Rapid Incubation Program.</p>
-		<p>If you've already applied, you can still sign in to manage your application.</p>
+		<h1>Welcome to Quantilytix Rapid Incubation Program</h1>
+		<p>An innovation-driven gateway to entrepreneurial success.</p>
+		<p>Accelerate your business growth with expert support and resources.</p>
 		<div class="form-container">
 			<div class="button-group">
+				<Button type="button" class="register-btn" on:click={() => navigateWithTransition('/signup')}>Register</Button>
+				<span class="separator">|</span>
 				<Button type="button" class="signin-btn" on:click={() => navigateWithTransition('/signin')}>Sign-in</Button>
 			</div>
 		</div>
