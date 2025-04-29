@@ -1,5 +1,5 @@
 export const siteConfig = {
-	name: "DUT | CSE Rapid Incubation Program",
+	name: "Quantilytix Rapid Incubation Program",
 	url: "https://shadcn-svelte.com",
 	ogImage: "https://shadcn-svelte.com/og.png",
 	description: "Beautifully designed components built with Melt UI and Tailwind CSS.",
