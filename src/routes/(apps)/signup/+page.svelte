@@ -132,9 +132,6 @@ const handleGoogleSignup = async () => {
 	<!-- 🔹 LEFT SIDE: Background & Branding -->
 	<div class="relative hidden flex flex-col items-center justify-center p-10 text-white lg:flex dark:border-r background-img">
 		<!-- ✅ Logos -->
-		<div class="absolute top-4 left-4 opacity-90">
-			<img src="/dut-cseri.png" alt="DUT CSE Logo" class="logo-left">
-		</div>
 		<div class="absolute bottom-4 right-4 opacity-90">
 			<img src="/QuantilytixO.png" alt="Quant Logo" class="logo-right">
 		</div>
