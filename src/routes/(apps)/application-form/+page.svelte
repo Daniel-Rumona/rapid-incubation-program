@@ -803,8 +803,8 @@ const submitForm = async () => {
 <!-- Form Wrapper -->
 <div class="flex flex-col items-center w-full px-4 sm:px-6 md:px-8">
 	<Card.Header class="text-center">
-		<Card.Title class="text-xl font-semibold">DUT CSE Rapid Incubation Programm Application</Card.Title>
-		<Card.Description>DUTCSERI collects and processes your application information to assess your suitability for our incubation program. We handle your data responsibly and in accordance with POPIA. By applying, you consent to this processing. For more details, please request our full POPIA policy</Card.Description>
+		<Card.Title class="text-xl font-semibold">Quantilytix Rapid Incubation Programm Application</Card.Title>
+		<Card.Description>Quantilytix collects and processes your application information to assess your suitability for our incubation program. We handle your data responsibly and in accordance with POPIA. By applying, you consent to this processing. For more details, please request our full POPIA policy</Card.Description>
 	</Card.Header>
 
 	<!-- Step Container -->
