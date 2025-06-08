@@ -19,7 +19,7 @@
 
 	<!-- Main Content -->
 	<div class="overlay">
-		<h1>Welcome to Quantilytix Rapid Incubation Program</h1>
+		<h1>Welcome to DUT CSE Rapid Incubator Program</h1>
 		<p>An innovation-driven gateway to entrepreneurial success.</p>
 		<p>Accelerate your business growth with expert support and resources.</p>
 		<div class="form-container">
